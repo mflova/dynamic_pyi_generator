@@ -1,3 +1,4 @@
+from dynamic_pyi_generator.utils.docstring_formatter import format_string_as_docstring as format_string_as_docstring
 from dynamic_pyi_generator.utils.import_manager import ImportManager as ImportManager
 from dynamic_pyi_generator.utils.mypy import Mypy as Mypy
 from dynamic_pyi_generator.utils.utils import (
