@@ -9,7 +9,7 @@ class FileHandler:
     lines: List[str]
 
     def __init__(self, representation: str) -> None:
-        self.lines = representation.split("\n")
+        self.lines = representation.splitlines()
 
     def __str__(self) -> str:
         return "\n".join(self.lines)
@@ -18,12 +18,10 @@ class FileHandler:
         return "\n".join(self.lines)
 
     @overload
-    def search_assignment(self, variable: str, only_values: Literal[False] = False) -> List[Tuple[int, str]]:
-        ...
+    def search_assignment(self, variable: str, only_values: Literal[False] = False) -> List[Tuple[int, str]]: ...
 
     @overload
-    def search_assignment(self, variable: str, only_values: Literal[True]) -> List[str]:
-        ...
+    def search_assignment(self, variable: str, only_values: Literal[True]) -> List[str]: ...
 
     def search_assignment(self, variable: str, only_values: bool = False) -> Union[List[Tuple[int, str]], List[str]]:
         """
@@ -181,7 +179,7 @@ class FileHandler:
         for node in ast.walk(tree):
             if isinstance(node, ast.FunctionDef):
                 node.body = [ast.Ellipsis()]  # type: ignore
-        self.lines = ast.unparse(tree).strip().split("\n")  # type: ignore
+        self.lines = ast.unparse(tree).strip().splitlines()  # type: ignore
 
     def remove_all_private_methods(self) -> None:
         """

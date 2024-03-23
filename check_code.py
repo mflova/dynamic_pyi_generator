@@ -242,7 +242,7 @@ def run_tool(
             err_str = output_str
 
     # Filter output
-    err_lines = err_str.split("\n")
+    err_lines = err_str.splitlines()
     filtered_err_lines = [line for line in err_lines if not any([ignore_ in line for ignore_ in ignore])]
     if only_include:
         filtered_err_lines = [line for line in err_lines if any([only_ in line for only_ in only_include])]

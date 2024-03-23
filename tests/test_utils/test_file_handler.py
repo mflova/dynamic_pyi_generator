@@ -27,7 +27,7 @@ def __init__(self) -> None:
 
 def get_classes_added(self) -> Set[str]:
     to_find = "classes_created"
-    for line in self.loaded_pyi_content.split("\n"):
+    for line in self.loaded_pyi_content.splitlines():
         if "classes_created" in line:
             break
     else:
@@ -46,7 +46,7 @@ def test(self) -> None:
 
 @staticmethod
 def _find_line_idx(string: str, *, keyword: str) -> int:
-    for idx, line in enumerate(string.split("\n")):
+    for idx, line in enumerate(string.splitlines()):
         if keyword in line and "test" not in line and "@overload" not in line:
             return idx
     raise PyiGeneratorError(

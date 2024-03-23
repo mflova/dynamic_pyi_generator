@@ -31,7 +31,7 @@ class Mypy:
             if isinstance(self.scanned, str):
                 raise ValueError("This method is only callable when a file has been scanned.")
             lines: List[str] = []
-            for idx, line in enumerate(self.scanned.read_text().split("\n")):
+            for idx, line in enumerate(self.scanned.read_text().splitlines()):
                 lines.append(f"{idx} {line}")
             return "\n".join(lines)
 
@@ -119,7 +119,7 @@ class Mypy:
         if result.stderr:
             raise ValueError(f"Mypy could not run: {result.stderr}")
 
-        error_lst = [line for line in result.stdout.split("\n") if "error: " in line]
+        error_lst = [line for line in result.stdout.splitlines() if "error: " in line]
         if ignore_errors:
             error_lst = [line for line in error_lst if not all(ignore_error in line for ignore_error in ignore_errors)]
         # Filter out to only get the errors from the file

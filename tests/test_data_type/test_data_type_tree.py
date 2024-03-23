@@ -88,7 +88,7 @@ class TestIntegration:
             string (str): The string to check for compatibility.
         """
         to_check = ["dict", "list", "set", "tuple"]
-        for line in string.split("\n"):
+        for line in string.splitlines():
             assert all(f"{check}[" not in line for check in to_check)
 
     @staticmethod
@@ -107,7 +107,7 @@ class TestIntegration:
 
     def assert_no_unused_classes(self, string: str) -> None:
         types_defined: Set[str] = set()
-        for line in string.split("\n"):
+        for line in string.splitlines():
             for type_defined in types_defined.copy():
                 if type_defined in line:
                     types_defined.remove(type_defined)
@@ -118,7 +118,7 @@ class TestIntegration:
 
     def assert_no_redefined_classes(self, string: str) -> None:
         all_types_defined: Set[str] = set()
-        for line in string.split("\n"):
+        for line in string.splitlines():
             name = self._get_name_type_alias(line)
             if name:
                 if name in all_types_defined:
@@ -126,12 +126,12 @@ class TestIntegration:
                 all_types_defined.add(name)
 
     def assert_no_double_whitespace(self, string: str) -> None:
-        for idx, line in enumerate(string.split("\n")):
+        for idx, line in enumerate(string.splitlines()):
             if TAB not in line and "  " in line:
                 pytest.fail(f"Double whitespaces were detected in line {idx}: {line}")
 
     def assert_basic_format(self, string: str) -> None:
-        strings = string.split("\n")
+        strings = string.splitlines()
         for idx, line in enumerate(strings):
             if line.startswith("class"):
                 error = "There has to eb exaxctly two empty lines before defining a class."

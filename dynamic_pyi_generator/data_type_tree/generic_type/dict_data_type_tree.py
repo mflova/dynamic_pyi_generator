@@ -137,7 +137,7 @@ class DictDataTypeTree(MappingDataTypeTree):
             idx_to_repeat = -1
 
         # Build the dictionary
-        lines = template.split("\n")
+        lines = template.splitlines()
         modified_line = ""
         for key, value in content.items():
             modified_line += lines[idx_to_repeat].format(key=key, value=value) + "\n"

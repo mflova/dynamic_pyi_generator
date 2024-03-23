@@ -1,4 +1,4 @@
-from typing import Callable, Final, Iterable
+from typing import Callable, Dict, Final, Iterable
 
 import pytest
 
@@ -206,3 +206,54 @@ class TestGetStrHeight:
             data, name=self.NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=min_height)
         )
         assert expected_output == tree.get_str_top_node(), error
+
+
+class TestDocstringFromKey:
+    NAME: Final = "Example"
+
+    # fmt: off
+    @pytest.mark.parametrize(
+        "tree, expected_output",
+        [
+            (DictDataTypeTree(data={"name": "Joan", "doc": "This is a docstring"}, name=NAME, strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc")),
+             f'''class {NAME}(TypedDict):
+{TAB}"""This is a docstring."""
+
+{TAB}name: str
+{TAB}doc: str'''),
+            (DictDataTypeTree(data={"name": "Joan", "doc": "This is a docstring"}, name=NAME, strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc2")),
+             f'''class {NAME}(TypedDict):
+{TAB}name: str
+{TAB}doc: str'''),
+        ],
+    )
+    # fmt: on
+    def test_docstring_is_created(self, tree: DictDataTypeTree, expected_output: str) -> None:
+        assert expected_output == tree.get_str_top_node()
+
+    @pytest.mark.parametrize(
+        "tree, expected_last_line",
+        [
+            (
+                DictDataTypeTree(
+                    data={"full name": "Joan", "doc": "This is a docstring"},
+                    name=NAME,
+                    strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc"),
+                ),
+                '''"""This is a docstring."""''',
+            ),
+            (
+                DictDataTypeTree(
+                    data={"full name": "Joan", "doc": "This is a docstring"},
+                    name=NAME,
+                    strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc2"),
+                ),
+                "",
+            ),
+        ],
+    )
+    def test_docstring_is_created_in_functional_syntax(self, tree: DictDataTypeTree, expected_last_line: str) -> None:
+        if expected_last_line:
+            assert expected_last_line == tree.get_str_top_node().splitlines()[-1]
+        else:
+            assert '""""' not in tree.get_str_top_node().splitlines()[-1]

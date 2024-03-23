@@ -1,0 +1,19 @@
+---
+# doc for level1
+level1:
+  # doc for key1
+  key1: value1
+# non valid doc for key2
+  key2: value2
+  # multi line
+  # comment for level2
+  level2:
+    # This is key3
+    #
+    # It is just an example
+    key3: value3
+    key4: value4
+    level3:
+       # non valid doc for key5
+      key5: value5
+      key6: value6
