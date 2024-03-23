@@ -14,6 +14,7 @@ from dynamic_pyi_generator.data_type_tree.generic_type.sequence_data_type_tree i
 
 class TupleDataTypeTree(SequenceDataTypeTree):
     wraps = tuple
+    original_data = Tuple[object, ...]
 
     @override
     def _instantiate_childs(self, data: Sequence[Any]) -> Tuple[DataTypeTree, ...]:  # type: ignore

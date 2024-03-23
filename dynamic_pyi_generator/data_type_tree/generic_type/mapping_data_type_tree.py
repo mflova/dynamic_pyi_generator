@@ -15,6 +15,7 @@ from dynamic_pyi_generator.data_type_tree.generic_type.generic_data_type_tree im
 class MappingDataTypeTree(GenericDataTypeTree):
     childs: Mapping[Hashable, DataTypeTree]
     wraps = MappingProxyType
+    original_data: Mapping[Hashable, object]
 
     # Iterable-protocol related
     _keys: Iterator[Hashable]

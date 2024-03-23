@@ -31,8 +31,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
-class DataTypeTreeError(Exception):
-    ...
+class DataTypeTreeError(Exception): ...
 
 
 DataTypeT = TypeVar("DataTypeT", bound=object)
@@ -44,17 +43,28 @@ class DataTypeTree(ABC):
     """Tree that represents any kind of data with its inner structures."""
 
     name: str
+    """Name that represents this node."""
     depth: int
+    """Depth of the current node with respect to the whole tree."""
     height: int
+    """Maximum height among all the child nodes."""
+    original_data: object
+    """Data that was given as input to parse."""
     imports: ImportManager  # Unique one shared among the whole tree
+    """Handle the imports required to generate the string representation."""
     parent: Optional[DataTypeTree]
+    """Parent node (if any)."""
     childs: Optional[ChildStructure[DataTypeTree]]
+    """All childs available within the tree."""
     holding_type: Type[object]
+    """Type of input data given."""
     strategies: ParsingStrategies
+    """Strategies to follow when parsing the data."""
 
     subclasses: ClassVar[Mapping[Type[object], Type[DataTypeTree]]] = {}
-
+    """Available subclasses according to the type they are able to parse."""
     wraps: ClassVar[Union[Type[object], Sequence[Type[object]]]] = object
+    """Object type that the tree is able to parse."""
 
     @final
     def __init__(
@@ -85,10 +95,10 @@ class DataTypeTree(ABC):
         self.parent = parent
         self.height = self._get_height()
         self._needs_type_alias = False
+        self.original_data = data
         self.__post_init__()
 
-    def __post_init__(self) -> None:
-        ...
+    def __post_init__(self) -> None: ...
 
     def _get_height(self) -> int:
         """Get maximum height of the current node in the tree."""

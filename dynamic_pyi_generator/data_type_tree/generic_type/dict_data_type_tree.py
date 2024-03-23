@@ -8,11 +8,12 @@ else:
 
 from dynamic_pyi_generator.data_type_tree.data_type_tree import DataTypeTree
 from dynamic_pyi_generator.data_type_tree.generic_type.mapping_data_type_tree import MappingDataTypeTree
-from dynamic_pyi_generator.utils import TAB, is_string_python_keyword_compatible
+from dynamic_pyi_generator.utils import TAB, format_string_as_docstring, is_string_python_keyword_compatible
 
 
 class DictDataTypeTree(MappingDataTypeTree):
     wraps = dict  # type: ignore
+    original_data: Dict[Hashable, object]
 
     class DictProfile(NamedTuple):
         """
@@ -100,11 +101,15 @@ class DictDataTypeTree(MappingDataTypeTree):
                     name = f"{self.name}{self._to_camel_case(key)}"
                     content[key] = name
         return self._build_typed_dict(
-            name=self.name, content=content, functional_syntax=self.dict_profile.is_functional_syntax
+            name=self.name,
+            content=content,
+            functional_syntax=self.dict_profile.is_functional_syntax,
+            key_used_as_doc=self.strategies.key_used_as_doc,
         )
 
-    @staticmethod
-    def _build_typed_dict(name: str, content: Mapping[str, str], *, functional_syntax: bool = False) -> str:
+    def _build_typed_dict(
+        self, name: str, content: Mapping[str, str], *, functional_syntax: bool = False, key_used_as_doc: str = ""
+    ) -> str:
         """
         Build a typed dictionary based on the given name and content.
 
@@ -131,11 +136,22 @@ class DictDataTypeTree(MappingDataTypeTree):
 {TAB}{{key}}: {{value}}"""
             idx_to_repeat = -1
 
+        # Build the dictionary
         lines = template.split("\n")
         modified_line = ""
         for key, value in content.items():
             modified_line += lines[idx_to_repeat].format(key=key, value=value) + "\n"
         lines[idx_to_repeat] = modified_line[:-1]
+
+        # Append docstring if found
+        if key_used_as_doc in self.original_data:
+            string = self.original_data[key_used_as_doc]
+            if isinstance(string, str):
+                docstring = format_string_as_docstring(string)
+                if functional_syntax:
+                    lines.insert(len(lines), docstring)
+                else:
+                    lines.insert(1, TAB + docstring + "\n")
         return "\n".join(lines)
 
     @override

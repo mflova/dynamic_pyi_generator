@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Hashable, List
+from typing import TYPE_CHECKING, Hashable, List, Sequence
 
 if TYPE_CHECKING:
     from typing_extensions import override
@@ -11,6 +11,8 @@ from dynamic_pyi_generator.data_type_tree.generic_type.generic_data_type_tree im
 
 
 class SequenceDataTypeTree(GenericDataTypeTree):
+    original_data = Sequence[object]
+
     @override
     def _get_hash(self) -> Hashable:
         hashes: List[object] = []

@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, List, Sequence, Tuple
 
 from dynamic_pyi_generator.data_type_tree.data_type_tree import DataTypeTree, DataTypeTreeError
 from dynamic_pyi_generator.data_type_tree.generic_type.generic_data_type_tree import (
@@ -16,6 +16,7 @@ else:
 
 class ListDataTypeTree(SequenceDataTypeTree):
     wraps = list
+    original_data = List[object]
 
     @override
     def _instantiate_childs(self, data: Sequence[Any]) -> Tuple[DataTypeTree, ...]:  # type: ignore

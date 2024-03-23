@@ -13,6 +13,7 @@ class SimpleDataTypeTree(DataTypeTree):
 
     childs: None
     wraps = (bool, int, float, range, slice, str, type(None))
+    original_data = Union[bool, int, float, range, slice, str, None]
 
     @override
     def _instantiate_childs(self, data: Union[bool, float, str]) -> None:  # type: ignore  # noqa: ARG002

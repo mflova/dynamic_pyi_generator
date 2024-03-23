@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Hashable, Literal, Sequence, Set, Tuple
+from typing import TYPE_CHECKING, Any, FrozenSet, Hashable, Literal, Sequence, Set, Tuple, Union
 
 if TYPE_CHECKING:
     from typing_extensions import override
@@ -15,6 +15,7 @@ from dynamic_pyi_generator.data_type_tree.generic_type.generic_data_type_tree im
 class SetDataTypeTree(GenericDataTypeTree):
     wraps = (frozenset, set)
     childs: Sequence[DataTypeTree]
+    original_data: Union[Set[object], FrozenSet[object]]
 
     @override
     def _instantiate_childs(self, data: Sequence[Any]) -> Tuple[DataTypeTree, ...]:  # type: ignore

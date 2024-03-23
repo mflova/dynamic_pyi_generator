@@ -12,6 +12,7 @@ class ParsingStrategies:
     tuple_size_strategy: TUPLE_SIZE_STRATEGIES = "fixed"
     dict_strategy: MAPPING_STRATEGIES = "TypedDict"
     min_height_to_define_type_alias: int = 1
+    key_used_as_doc: str = ""
 
     def __post_init__(self) -> None:
         type_hints = get_type_hints(self)
