@@ -1,7 +1,7 @@
 from contextlib import suppress
 from pathlib import Path
-from typing import Any, Final, Literal, Mapping, MutableSequence, Optional, Sequence, Tuple, Union, contextlib
-from unittest.mock import MagicMock, patch
+from typing import Any, Final, Literal, Mapping, Optional, Sequence, Tuple, Union
+from unittest.mock import patch
 
 import pytest
 import yaml
@@ -27,6 +27,26 @@ class TestExceptions:
     def test_wrong_extension(self) -> None:
         with pytest.raises(YamlFileModifierError), suppress(FileNotFoundError):
             YamlFileModifier("file.py", comments_are="above")
+
+    @pytest.mark.parametrize("extension", [".yaml", ".yml"])
+    @pytest.mark.parametrize(
+        "file_path",
+        [
+            "file{extension}",
+            "/file{extension}",
+            "folder/file{extension}",
+            "/folder/file{extension}",
+            "C:/folder/file{extension}",
+        ],
+    )
+    def test_correct_extension(self, file_path: str, extension: str) -> None:
+        with patch("pathlib.Path.read_text", autospec=True) as mock_read:
+
+            def read_text_side_effect(self: Path, *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
+                return ""
+
+            mock_read.side_effect = read_text_side_effect
+            YamlFileModifier(file_path.format(extension=extension), comments_are="above")
 
 
 class TestCapitalizeOnlyFirstLetter:
@@ -168,11 +188,11 @@ class TestExtractSingleBlockComments:
     def data_file_modifier(self, content: str, comments_are: Literal["above", "below"]) -> YamlFileModifier:
         with patch("pathlib.Path.read_text", autospec=True) as mock_read:
 
-            def read_text_side_effect(self: Path, *args: Any, **kwargs: Any) -> str:
+            def read_text_side_effect(self: Path, *args: Any, **kwargs: Any) -> str:  # noqa: ARG001
                 return content
 
             mock_read.side_effect = read_text_side_effect
-            return YamlFileModifier(path="", comments_are=comments_are)
+            return YamlFileModifier(path="file.yaml", comments_are=comments_are)
 
     @pytest.fixture
     def comments_are(self) -> Literal["above", "below"]:
@@ -252,6 +272,20 @@ key: comment""",
                 "This is a comment that finishes in another line.",
             ),
             (
+                """'key': comment
+# This is a comment""",
+                "below",
+                0,
+                "This is a comment.",
+            ),
+            (
+                """"key": comment
+# This is a comment""",
+                "below",
+                0,
+                "This is a comment.",
+            ),
+            (
                 """key2: value
 # This is another comment.
     # This is a single comment.
@@ -312,7 +346,7 @@ key: comment""",
             ),
             (
                 """- key: comment
-# This is a comment
+  # This is a comment
 """,
                 "below",
                 0,
@@ -325,6 +359,22 @@ key: comment""",
 """,
                 "below",
                 1,
+                "This is a comment.",
+            ),
+            (
+                """- key
+  # This is a comment
+""",
+                "below",
+                0,
+                "",
+            ),
+            (
+                """- 'key':
+  # This is a comment
+""",
+                "below",
+                0,
                 "This is a comment.",
             ),
         ],
@@ -717,7 +767,6 @@ class TestIntegration:
     def test_method(
         self, file: str, comments_are: YAML_COMMENTS_POSITION, dict_to_be_created: Mapping[str, object]
     ) -> None:
-        # TODO: Make it parallel compatible
         data_file_modifier = YamlFileModifier(TEST_FILES_DIR / file, comments_are=comments_are)
         path = data_file_modifier.create_temporary_file_with_comments_as_keys()
         assert dict_to_be_created == self.read_yaml(path)

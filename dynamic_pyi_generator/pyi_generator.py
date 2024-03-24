@@ -22,7 +22,6 @@ from typing import (
 import dynamic_pyi_generator
 from dynamic_pyi_generator.data_type_tree import data_type_tree_factory
 from dynamic_pyi_generator.file_modifiers.py_file_modifier import PyFileModifier
-from dynamic_pyi_generator.file_modifiers.yaml_file_modifier import YAML_COMMENTS_POSITION
 from dynamic_pyi_generator.strategies import ParsingStrategies
 from dynamic_pyi_generator.utils import (
     TAB,
@@ -41,6 +40,7 @@ class PyiGeneratorError(Exception):
 
 
 ObjectT = TypeVar("ObjectT")
+PathT = TypeVar("PathT", str, Path)
 
 
 class PyiGenerator:
@@ -152,8 +152,8 @@ class PyiGenerator:
 
     def from_file(
         self,
-        loader: Callable[[str], ObjectT],
-        path: str,
+        loader: Callable[[PathT], ObjectT],
+        path: PathT,
         *,
         class_name: str,
     ) -> ObjectT:

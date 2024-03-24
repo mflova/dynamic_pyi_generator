@@ -2,7 +2,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Dict, Hashable, List, Mapping, NamedTuple, Sequence, cast
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeGuard, override, reveal_type
+    from typing_extensions import TypeGuard, override
 else:
     override = lambda x: x
 
@@ -108,11 +108,16 @@ class DictDataTypeTree(MappingDataTypeTree):
             name=self.name,
             content=content,
             functional_syntax=self.dict_profile.is_functional_syntax,
-            key_used_as_doc=self.strategies.key_used_as_doc,
+            key_used_as_class_docstring=self.strategies.key_used_as_doc,
         )
 
     def _build_typed_dict(
-        self, name: str, content: Mapping[str, str], *, functional_syntax: bool = False, key_used_as_doc: str = ""
+        self,
+        name: str,
+        content: Mapping[str, str],
+        *,
+        functional_syntax: bool = False,
+        key_used_as_class_docstring: str = "",
     ) -> str:
         """
         Build a typed dictionary based on the given name and content.
@@ -123,6 +128,9 @@ class DictDataTypeTree(MappingDataTypeTree):
                 key-value pair represents a field and its type.
             functional_syntax (bool, optional): If True, use functional syntax to define
                 the typed dictionary. Defaults to False.
+            key_used_as_class_docstring (str, optional): The key to be used as the class docstring.
+                This is a hidden one and it will not be represented in the final `TypedDict`.
+                Defaults to an empty string.
 
         Returns:
             str: The string representation of the typed dictionary.
@@ -145,19 +153,20 @@ class DictDataTypeTree(MappingDataTypeTree):
         modified_line = ""
         key_docstrings = self._get_key_docstrings(docstring_keys_start_with=self.hidden_keys_preffix)
         for key, value in content.items():
-            if not key.startswith(self.hidden_keys_preffix):  # Do not add artificially created keys
-                if self.dict_profile.is_functional_syntax:
-                    modified_line += lines[idx_to_repeat].format(key=key, value=value) + "\n"
-                else:
-                    docstring = key_docstrings.get(key, "")
-                    modified_line += lines[idx_to_repeat].format(key=key, value=value, optional_key_docstring=docstring)
-                    if not docstring:
-                        modified_line += "\n"
+            if key.startswith(self.hidden_keys_preffix):  # Do not add artificially created keys
+                continue
+            if self.dict_profile.is_functional_syntax:
+                modified_line += lines[idx_to_repeat].format(key=key, value=value) + "\n"
+            else:
+                docstring = key_docstrings.get(key, "")
+                modified_line += lines[idx_to_repeat].format(key=key, value=value, optional_key_docstring=docstring)
+                if not docstring:
+                    modified_line += "\n"
         lines[idx_to_repeat] = modified_line[:-1]
 
         # Append class docstring if found
-        if key_used_as_doc in self.original_data and key_used_as_doc:
-            lines = self._insert_class_docstring(lines, key_used_as_doc=key_used_as_doc)
+        if key_used_as_class_docstring in self.original_data and key_used_as_class_docstring:
+            lines = self._insert_class_docstring(lines, key_used_as_doc=key_used_as_class_docstring)
         return "\n".join(lines)
 
     def _get_key_docstrings(self, *, docstring_keys_start_with: str) -> Mapping[str, str]:
@@ -167,9 +176,9 @@ class DictDataTypeTree(MappingDataTypeTree):
         # Insert key docstrings
         for key in self.original_data:
             if not key.startswith(docstring_keys_start_with):  # Check key is not docstring based
-                doc_key = f"{self.hidden_keys_preffix}{key}"
+                doc_key: str = f"{self.hidden_keys_preffix}{key}"
                 if doc_key in self.original_data:  # Check if there is key docstring
-                    unformatted_docstring = self.original_data[doc_key]
+                    unformatted_docstring = self.original_data[doc_key]  # type: ignore
                     if not isinstance(unformatted_docstring, str):
                         continue
                     formated_docstring = (

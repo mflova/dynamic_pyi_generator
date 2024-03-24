@@ -1,7 +1,5 @@
-# TODO:
-# Ignore side comments on lists
-# Also parse the comments at right if found.
-# Once I do it, I can append them to the full comment found either up or below
+"""Tool that allows to read comments from yaml files and re-introduce them as part of the dictionary."""
+
 import re
 import tempfile
 from collections import defaultdict
@@ -9,52 +7,69 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
-    Callable,
     Final,
     FrozenSet,
-    Iterable,
     List,
     Literal,
     Mapping,
     Optional,
     Sequence,
-    Set,
     Tuple,
     Union,
-    cast,
 )
 
 YAML_COMMENTS_POSITION = Literal["above", "below", "side"]
+"""Possible locations where comments can be written."""
 
 
 @dataclass(frozen=True)
 class Comment:
+    """Characterization of a single multi-line comment."""
+
     full_string: str
     associated_with_key: str
     key_line: int
     spacing_element: Tuple[Literal["spaces", "tabs", "none"], int]
 
 
-class YamlFileModifierError(Exception): ...
+class YamlFileModifierError(Exception):
+    ...
 
 
 class YamlFileModifier:
     path: Path
+    """Path where the file lies."""
     lines: Tuple[str, ...]
+    """Content of the file parsed as multiple lines."""
     comments_are: Tuple[YAML_COMMENTS_POSITION, ...]
-    preffix: Final = f"___docstring_key_"
+    """Potential location of the comments. Order matters."""
+    preffix: Final = "___docstring_hidden_key_"
+    """When reading the comments associated with a key, this preffix will be prepended to the key.
+    
+    This will allow to create a new dictionary mirroring the original one but with new hidden
+    keys that capture the comments.
+    """
 
     def __init__(
         self, path: Union[str, Path], *, comments_are: Union[YAML_COMMENTS_POSITION, Sequence[YAML_COMMENTS_POSITION]]
     ) -> None:
+        """
+        Initialize a YamlFileModifier object.
+
+        Args:
+            path (Union[str, Path]): The path to the YAML file.
+            comments_are (Union[YAML_COMMENTS_POSITION, Sequence[YAML_COMMENTS_POSITION]]): The position(s) where
+                comments are located. If multiple are provided, the order of the sequence will affect how the final
+                docstring is built.
+        """
         if "above" in comments_are and "below" in comments_are:
             raise YamlFileModifierError(
                 f"When choosing where the comments are located, you can choose any combination that does not combine "
                 f"`below` and `above` at the same time. Input given: {', '.join(comments_are)}"
             )
         self.path = Path(path)
-        if not self.path.stem.endswith((".yaml", ".yml")):
-            raise YamlFileModifierError(f"Only `.yaml` or `.yml` are allowed. File given is: {self.path.stem}")
+        if not self.path.suffix.endswith((".yaml", ".yml")):
+            raise YamlFileModifierError(f"Only `.yaml` or `.yml` are allowed. File given is: {self.path}")
         self.lines = tuple(Path(path).read_text().splitlines())
         comments_are = (comments_are,) if isinstance(comments_are, str) else tuple(comments_are)
         self.comments_are = comments_are
@@ -75,6 +90,11 @@ class YamlFileModifier:
 
     @staticmethod
     def _join_multi_line_comments(lines: Sequence[str]) -> str:
+        """
+        Joins multiple lines of comments into a single string.
+
+        This one includes the use of `.` and capital letters when needed
+        """
         result = ""
         # Remove null strings from both sides of the list until finding first valid string
         lines = list(lines)
@@ -121,6 +141,12 @@ class YamlFileModifier:
 
     @staticmethod
     def _extract_side_comment(line: str) -> str:
+        """
+        Extracts the side comment from a given line of text.
+
+        Example:
+            yaml_key: value  # My comment
+        """
         idx = YamlFileModifier._find_first_occurence_that_is_not_between(line, "#")
         if not idx:
             return ""
@@ -135,12 +161,32 @@ class YamlFileModifier:
         return comment
 
     def _extract_single_block_comment(self, line_idx: int, *, comments_are: Literal["above", "below"]) -> str:
+        """
+        Extracts a single block comment from the specified line index.
+
+        It is important that the comment is perfectly aligned with the key that is commenting.
+        It also merges multiple lines.
+        Only comments attached to dictionary keys will be returned.
+
+        Example:
+            # Comment above
+            key: value
+            # Comment below
+            # that can be multiple lines
+
+        Args:
+            line_idx (int): The index of the line to extract the comment from.
+            comments_are (Literal["above", "below"]): Specifies whether the comments are located above
+                or below the line.
+        """
         # Find first non space/tab character
         try:
             line = self.lines[line_idx]
         except IndexError:
             return ""
-        idx_first_char = line.find(line.strip()[0])
+        if not self._find_first_occurence_that_is_not_between(line, ":"):
+            return ""
+        idx_first_char = line.find(line.strip().replace("-", "").strip()[0])
 
         step: Final = -1 if comments_are == "above" else 1
         increment = step
@@ -163,6 +209,18 @@ class YamlFileModifier:
     def _find_first_occurence_that_is_not_between(
         line: str, occurence: str, not_between: FrozenSet[str] = frozenset({"'", '"'})
     ) -> Optional[int]:
+        """
+        Finds the first occurrence of a character that is not between the given characters.
+
+        Args:
+            line (str): The line to search for the occurrence.
+            occurence (str): The character to search for.
+            not_between (FrozenSet[str], optional): A set of characters that define the quotes.
+                Defaults to frozenset({"'", '"'}).
+
+        Returns:
+            Optional[int]: The index of the first occurrence that is not between quotes, or None if not found.
+        """
         between_quotes = False
         for i, char in enumerate(line):
             if char in not_between:
@@ -173,6 +231,13 @@ class YamlFileModifier:
 
     @staticmethod
     def _extract_key_from_line(line: str) -> str:
+        """
+        Extracts the key from a YAML line.
+
+        Examples for `line`:
+            - key: value
+              key2: value
+        """
         line = YamlFileModifier._remove_spacing(line)
         if line[0] == "-":  # Detect list cases
             line = " " + line[1:]
@@ -191,6 +256,18 @@ class YamlFileModifier:
 
     @staticmethod
     def _detect_indentation(lines: Sequence[str]) -> Literal["spaces", "tabs", "??"]:
+        """
+        Detects the type of indentation used in the given lines.
+
+        Args:
+            lines (Sequence[str]): The lines of code to analyze.
+
+        Returns:
+            Literal["spaces", "tabs", "??"]: The type of indentation used. It can be "spaces" if spaces are
+                used for indentation, "tabs" if tabs are used for indentation, or "??" if both spaces and
+                tabs are used.
+
+        """
         tabs_used = any("\t" in line for line in lines)
         spaces_used = any(" " in line for line in lines)
         if tabs_used and spaces_used:
@@ -204,6 +281,17 @@ class YamlFileModifier:
 
     @staticmethod
     def _count_spaces_or_tabs_at_start(line: str, *, indendation: Literal["spaces", "tabs"]) -> Optional[int]:
+        """
+        Counts the number of spaces or tabs at the start of a line.
+
+        Args:
+            line (str): The line to count spaces or tabs from.
+            indendation (Literal["spaces", "tabs"]): The type of indentation to count.
+
+        Returns:
+            Optional[int]: The number of spaces or tabs at the start of the line, or None if the line contains a
+                hyphen and the indentation is set to "tabs".
+        """
         if "-" in line and indendation == "tabs":
             return None
         line = line.replace("-", " ")
@@ -215,6 +303,15 @@ class YamlFileModifier:
         return 0
 
     def _extract_comments(self) -> Tuple[Comment, ...]:
+        """
+        Extracts comments associated with keys in the YAML file.
+
+        This includes comments that can be located above, below or by the side.
+        These comments can also be multi-line.
+
+        Returns:
+            A tuple of Comment objects representing the extracted comments.
+        """
         comments: List[Comment] = []
         indentation = self._detect_indentation(self.lines)
         if indentation == "??":
@@ -254,6 +351,12 @@ class YamlFileModifier:
 
     @staticmethod
     def _format_comment_as_multiline_yaml(comment: Comment) -> str:
+        """
+        Formats a comment as a multiline YAML string.
+
+        Args:
+            comment (Comment): The comment object to format.
+        """
         lines = comment.full_string.splitlines()
         lines.insert(0, "")
         indentation = comment.spacing_element[0]
@@ -263,6 +366,11 @@ class YamlFileModifier:
 
     @staticmethod
     def _merge_comments(comments: Sequence[Comment]) -> Tuple[Comment, ...]:
+        """
+        Merge comments that are associated with the same key.
+
+        This can heppen if the user requests to read from "below" and "side" for example.
+        """
         comments_in_line: Mapping[int, List[Comment]] = defaultdict(list)
         for comment in comments:
             comments_in_line[comment.key_line].append(comment)
@@ -281,6 +389,7 @@ class YamlFileModifier:
         return tuple(merged_comments)
 
     def _create_temporary_string_with_comments_as_keys(self) -> str:
+        """Create the YAML-based string representation of the new dictionary containing new doc-based keys."""
         comments = self._extract_comments()
         reverse_order_comments = sorted(comments, key=lambda comment: comment.key_line, reverse=True)
         new_lines = list(self.lines).copy()
@@ -294,6 +403,14 @@ class YamlFileModifier:
         return "\n".join(new_lines)
 
     def create_temporary_file_with_comments_as_keys(self) -> Path:
+        """Create a new YAML file with new keys containing the documentation.
+
+        This method creates a new YAML file by converting the comments in the original file into keys in the new file.
+        The comments are extracted from the original file and added as keys in the new file.
+
+        Returns:
+            Path: The path to the newly created YAML file.
+        """
         string = self._create_temporary_string_with_comments_as_keys()
         path = Path(tempfile.gettempdir()) / f"_{self.path.name}"
         path.write_text(string)

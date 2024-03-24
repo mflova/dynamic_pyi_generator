@@ -18,10 +18,12 @@ class PyFileModifier:
         return "\n".join(self.lines)
 
     @overload
-    def search_assignment(self, variable: str, only_values: Literal[False] = False) -> List[Tuple[int, str]]: ...
+    def search_assignment(self, variable: str, only_values: Literal[False] = False) -> List[Tuple[int, str]]:
+        ...
 
     @overload
-    def search_assignment(self, variable: str, only_values: Literal[True]) -> List[str]: ...
+    def search_assignment(self, variable: str, only_values: Literal[True]) -> List[str]:
+        ...
 
     def search_assignment(self, variable: str, only_values: bool = False) -> Union[List[Tuple[int, str]], List[str]]:
         """

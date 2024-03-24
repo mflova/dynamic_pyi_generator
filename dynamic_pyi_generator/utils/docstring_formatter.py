@@ -41,6 +41,7 @@ def format_string_as_docstring(string: str, *, max_line_length: int = 90, indent
     Args:
         string (str): The string to be formatted as a docstring.
         max_line_length (int, optional): The maximum line length for the docstring. Defaults to 90.
+        indentation (str, optional): The indentation to be applied to each line of the docstring. Defaults to "".
 
     Returns:
         str: The formatted docstring.

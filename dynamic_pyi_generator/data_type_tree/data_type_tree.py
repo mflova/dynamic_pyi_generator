@@ -31,7 +31,8 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
-class DataTypeTreeError(Exception): ...
+class DataTypeTreeError(Exception):
+    ...
 
 
 DataTypeT = TypeVar("DataTypeT", bound=object)
@@ -98,7 +99,8 @@ class DataTypeTree(ABC):
         self.original_data = data
         self.__post_init__()
 
-    def __post_init__(self) -> None: ...
+    def __post_init__(self) -> None:
+        ...
 
     def _get_height(self) -> int:
         """Get maximum height of the current node in the tree."""
