@@ -1,5 +1,6 @@
+from contextlib import suppress
 from pathlib import Path
-from typing import Any, Final, Literal, Mapping, MutableSequence, Optional, Sequence, Tuple, Union
+from typing import Any, Final, Literal, Mapping, MutableSequence, Optional, Sequence, Tuple, Union, contextlib
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,6 +23,10 @@ class TestExceptions:
     def test_wrong_inputs(self) -> None:
         with pytest.raises(YamlFileModifierError):
             YamlFileModifier("", comments_are=["above", "below"])
+
+    def test_wrong_extension(self) -> None:
+        with pytest.raises(YamlFileModifierError), suppress(FileNotFoundError):
+            YamlFileModifier("file.py", comments_are="above")
 
 
 class TestCapitalizeOnlyFirstLetter:
@@ -712,12 +717,12 @@ class TestIntegration:
     def test_method(
         self, file: str, comments_are: YAML_COMMENTS_POSITION, dict_to_be_created: Mapping[str, object]
     ) -> None:
+        # TODO: Make it parallel compatible
         data_file_modifier = YamlFileModifier(TEST_FILES_DIR / file, comments_are=comments_are)
         path = data_file_modifier.create_temporary_file_with_comments_as_keys()
         assert dict_to_be_created == self.read_yaml(path)
 
     def read_yaml(self, path: Union[Path, str]) -> Mapping[str, object]:
-        Path("delete.yaml").write_text(path.read_text())
         with open(path) as f:
             try:
                 return dict(yaml.load(f, Loader=yaml.SafeLoader))

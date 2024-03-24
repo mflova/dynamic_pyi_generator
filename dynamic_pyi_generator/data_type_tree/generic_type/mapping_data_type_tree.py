@@ -1,6 +1,6 @@
 import re
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Dict, Hashable, Iterator, List, Literal, Mapping, Set
+from typing import TYPE_CHECKING, Dict, Final, Hashable, Iterator, List, Literal, Mapping, Set
 
 from dynamic_pyi_generator.file_modifiers.yaml_file_modifier import YamlFileModifier
 
@@ -12,12 +12,14 @@ else:
 from dynamic_pyi_generator.data_type_tree.data_type_tree import DataTypeTree
 from dynamic_pyi_generator.data_type_tree.factory import data_type_tree_factory
 from dynamic_pyi_generator.data_type_tree.generic_type.generic_data_type_tree import GenericDataTypeTree
+from dynamic_pyi_generator.file_modifiers.yaml_file_modifier import YamlFileModifier
 
 
 class MappingDataTypeTree(GenericDataTypeTree):
     childs: Mapping[Hashable, DataTypeTree]
     wraps = MappingProxyType
     original_data: Mapping[Hashable, object]
+    hidden_keys_preffix: Final = YamlFileModifier.preffix
 
     # Iterable-protocol related
     _keys: Iterator[Hashable]
@@ -27,6 +29,8 @@ class MappingDataTypeTree(GenericDataTypeTree):
         childs: Dict[Hashable, DataTypeTree] = {}
         for key, value in data.items():
             suffix = type(key).__name__ if not isinstance(key, str) else self._to_camel_case(key)
+            if isinstance(key, str) and key.startswith(self.hidden_keys_preffix):
+                continue
             childs[key] = data_type_tree_factory(
                 data=value,
                 name=f"{self.name}{suffix}",

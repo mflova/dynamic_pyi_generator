@@ -10,7 +10,6 @@ from typing import TypeVar
 
 from dynamic_pyi_generator.data_type_tree.data_type_tree import DataTypeTree
 from dynamic_pyi_generator.data_type_tree.generic_type.mapping_data_type_tree import MappingDataTypeTree
-from dynamic_pyi_generator.file_modifiers.yaml_file_modifier import YamlFileModifier
 from dynamic_pyi_generator.utils import TAB, format_string_as_docstring, is_string_python_keyword_compatible
 
 ValueT = TypeVar("ValueT")
@@ -144,10 +143,9 @@ class DictDataTypeTree(MappingDataTypeTree):
         # Build the dictionary
         lines = template.splitlines()
         modified_line = ""
-        key_docstring_start_with = YamlFileModifier.preffix
-        key_docstrings = self._get_key_docstrings(docstring_keys_start_with=key_docstring_start_with)
+        key_docstrings = self._get_key_docstrings(docstring_keys_start_with=self.hidden_keys_preffix)
         for key, value in content.items():
-            if not key.startswith(key_docstring_start_with):  # Do not add artificially created keys
+            if not key.startswith(self.hidden_keys_preffix):  # Do not add artificially created keys
                 if self.dict_profile.is_functional_syntax:
                     modified_line += lines[idx_to_repeat].format(key=key, value=value) + "\n"
                 else:
@@ -169,7 +167,7 @@ class DictDataTypeTree(MappingDataTypeTree):
         # Insert key docstrings
         for key in self.original_data:
             if not key.startswith(docstring_keys_start_with):  # Check key is not docstring based
-                doc_key = f"{YamlFileModifier.preffix}{key}"
+                doc_key = f"{self.hidden_keys_preffix}{key}"
                 if doc_key in self.original_data:  # Check if there is key docstring
                     unformatted_docstring = self.original_data[doc_key]
                     if not isinstance(unformatted_docstring, str):
@@ -194,7 +192,7 @@ class DictDataTypeTree(MappingDataTypeTree):
 
     @override
     def _get_hash(self) -> Hashable:
-        if not self.dict_profile.is_typed_dict:  # If TypedDict
+        if not self.dict_profile.is_typed_dict:
             return super()._get_hash()
         hashes: List[object] = []
         for name, child in self.childs.items():

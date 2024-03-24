@@ -53,6 +53,8 @@ class YamlFileModifier:
                 f"`below` and `above` at the same time. Input given: {', '.join(comments_are)}"
             )
         self.path = Path(path)
+        if not self.path.stem.endswith((".yaml", ".yml")):
+            raise YamlFileModifierError(f"Only `.yaml` or `.yml` are allowed. File given is: {self.path.stem}")
         self.lines = tuple(Path(path).read_text().splitlines())
         comments_are = (comments_are,) if isinstance(comments_are, str) else tuple(comments_are)
         self.comments_are = comments_are
@@ -293,6 +295,6 @@ class YamlFileModifier:
 
     def create_temporary_file_with_comments_as_keys(self) -> Path:
         string = self._create_temporary_string_with_comments_as_keys()
-        path = Path(tempfile.gettempdir()) / "_temp.yaml"
+        path = Path(tempfile.gettempdir()) / f"_{self.path.name}"
         path.write_text(string)
         return path

@@ -369,6 +369,6 @@ class TestKeyDocstring:
     def test_hidden_key_docs_do_not_change_hash(
         self, data1: Dict[Any, Any], data2: Dict[Any, Any], expected_same_hash: bool
     ) -> None:
-        tree1 = DictDataTypeTree(data1)
-        tree2 = DictDataTypeTree(data2)
+        tree1 = DictDataTypeTree(data1, name="Tree1")
+        tree2 = DictDataTypeTree(data2, name="Tree2")
         assert expected_same_hash == (hash(tree1) == hash(tree2))
