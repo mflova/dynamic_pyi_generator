@@ -24,6 +24,11 @@ class TestGetStrPy:
         data_type_tree = SimpleDataTypeTree(data, self.NAME)
         assert expected_str == data_type_tree.get_str_top_node()
 
+    def test_none(self) -> None:
+        data_type_tree = SimpleDataTypeTree(None, self.NAME)
+        assert f"{self.NAME} = Optional[object]" == data_type_tree.get_str_top_node()
+        assert "Optional" in data_type_tree.imports._set
+
 
 class TestHash:
     NAME: Final = "Example"

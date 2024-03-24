@@ -17,7 +17,7 @@ ValueT = TypeVar("ValueT")
 
 class DictDataTypeTree(MappingDataTypeTree):
     wraps = dict  # type: ignore
-    original_data: Dict[Hashable, object]
+    data: Dict[Hashable, object]
 
     class DictProfile(NamedTuple):
         """
@@ -165,20 +165,20 @@ class DictDataTypeTree(MappingDataTypeTree):
         lines[idx_to_repeat] = modified_line[:-1]
 
         # Append class docstring if found
-        if key_used_as_class_docstring in self.original_data and key_used_as_class_docstring:
+        if key_used_as_class_docstring in self.data and key_used_as_class_docstring:
             lines = self._insert_class_docstring(lines, key_used_as_doc=key_used_as_class_docstring)
         return "\n".join(lines)
 
     def _get_key_docstrings(self, *, docstring_keys_start_with: str) -> Mapping[str, str]:
-        if self.dict_profile.is_functional_syntax or not self._all_keys_are_string(self.original_data):
+        if self.dict_profile.is_functional_syntax or not self._all_keys_are_string(self.data):
             return {}
         dct: Dict[str, str] = {}
         # Insert key docstrings
-        for key in self.original_data:
+        for key in self.data:
             if not key.startswith(docstring_keys_start_with):  # Check key is not docstring based
                 doc_key: str = f"{self.hidden_keys_preffix}{key}"
-                if doc_key in self.original_data:  # Check if there is key docstring
-                    unformatted_docstring = self.original_data[doc_key]  # type: ignore
+                if doc_key in self.data:  # Check if there is key docstring
+                    unformatted_docstring = self.data[doc_key]  # type: ignore
                     if not isinstance(unformatted_docstring, str):
                         continue
                     formated_docstring = (
@@ -188,7 +188,7 @@ class DictDataTypeTree(MappingDataTypeTree):
         return dct
 
     def _insert_class_docstring(self, lines: Sequence[str], *, key_used_as_doc: str) -> List[str]:
-        string = self.original_data[key_used_as_doc]
+        string = self.data[key_used_as_doc]
         lines = list(lines)
         if isinstance(string, str):
             indentation = "" if self.dict_profile.is_functional_syntax else TAB

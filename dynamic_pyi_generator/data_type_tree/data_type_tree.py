@@ -31,8 +31,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
 
-class DataTypeTreeError(Exception):
-    ...
+class DataTypeTreeError(Exception): ...
 
 
 DataTypeT = TypeVar("DataTypeT", bound=object)
@@ -49,8 +48,11 @@ class DataTypeTree(ABC):
     """Depth of the current node with respect to the whole tree."""
     height: int
     """Maximum height among all the child nodes."""
-    original_data: object
-    """Data that was given as input to parse."""
+    data: object
+    """Data that was given as input to parse.
+    
+    This one might have been modified with respect to the original one.
+    """
     imports: ImportManager  # Unique one shared among the whole tree
     """Handle the imports required to generate the string representation."""
     parent: Optional[DataTypeTree]
@@ -96,11 +98,10 @@ class DataTypeTree(ABC):
         self.parent = parent
         self.height = self._get_height()
         self._needs_type_alias = False
-        self.original_data = data
+        self.data = data
         self.__post_init__()
 
-    def __post_init__(self) -> None:
-        ...
+    def __post_init__(self) -> None: ...
 
     def _get_height(self) -> int:
         """Get maximum height of the current node in the tree."""
@@ -167,7 +168,7 @@ class DataTypeTree(ABC):
 
     @final
     def get_str_top_node(self) -> str:
-        return self._get_str_top_node().replace("NoneType", "None")
+        return self._get_str_top_node()
 
     @final
     def get_str_all_nodes(self, include_imports: bool = True) -> str:

@@ -1,9 +1,30 @@
 # TODO
 
+TODO:
+- Test: Check that the `input_data` is not modified by any mean
+- Refactor: Create a new module called SequenceSetOperations. This one will
+contain the function that instantiates the childs but also the operations that will be
+used in the feature commented below.
+- Include some kind of pytest coverage.
+- New feature: Possibility to merge ALL dictionaries
+within a sequence/set. Add a new strategy parameter called:
+`merge_typed_dicts_if_similarity_is_above_percentage` Feature itself would merge
+dictionaries if:
+    - At least 1 key is shared in common among ALL dictionaries
+    - If this percentage is higher
+    If these conditions are met, two scenarios are possible:
+      - Among the repated keys, all values are the same type:
+        - In this case, create a normal `TypedDict` that uses `NotRequried` for the non
+          common keys.
+      - Among the repated keys, some value types are different:
+        - Continue using `NotRquired` for those non repeated keys.
+        - In such case, merge them with `Union` operator
+
+
+Backlog:
 
 feat:
 
-- Strategy: Type hint Type aliases and keys within typedDict as `Final`?
 - Make it compatible with different Python versions.This include:
   - Migration for some of the classes from `typing` to `collections.abc`
   - Use of `list` instead of `typing.List`

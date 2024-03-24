@@ -19,6 +19,7 @@ KEYWORDS_AVAILABLE: "TypeAlias" = Literal[
     "TypedDict",
     "Any",
     "Union",
+    "Optional",
 ]
 
 
@@ -40,6 +41,7 @@ class ImportManager:
             "TypedDict": ("typing", "TypedDict"),
             "Any": ("typing", "Any"),
             "Union": ("typing", "Union"),
+            "Optional": ("typing", "Optional"),
         }
     )
 

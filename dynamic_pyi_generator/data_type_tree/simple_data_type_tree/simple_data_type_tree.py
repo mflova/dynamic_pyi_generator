@@ -21,6 +21,9 @@ class SimpleDataTypeTree(DataTypeTree):
 
     @override
     def _get_str_top_node(self) -> str:
+        if self.holding_type.__name__ == "NoneType":
+            self.imports.add("Optional")
+            return f"{self.name} = Optional[object]"
         return f"{self.name} = {self.holding_type.__name__}"
 
     @override

@@ -16,6 +16,7 @@ THIS_DIR = Path(__file__).parent
 class PyiGeneratorError(Exception):
     """Raised by `PyiGenerator` class."""
 ObjectT = TypeVar('ObjectT')
+PathT = TypeVar('PathT', str, Path)
 
 class PyiGenerator:
     classes_created: 'TypeAlias' = Any
@@ -23,7 +24,7 @@ class PyiGenerator:
     @final
     def __init__(self, *, strategies: ParsingStrategies=ParsingStrategies(), if_interface_exists: Literal['overwrite', 'validate']='validate', generated_classes_custom_dir: Tuple[Union[ModuleType, str], ...]=(dynamic_pyi_generator, 'build')) -> None:...
 
-    def from_file(self, loader: Callable[[str], ObjectT], path: str, *, class_name: str) -> ObjectT:...
+    def from_file(self, loader: Callable[[PathT], ObjectT], path: PathT, *, class_name: str) -> ObjectT:...
 
     def from_data(self, data: ObjectT, class_name: str) -> ObjectT:...
 
