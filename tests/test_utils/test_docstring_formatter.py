@@ -45,6 +45,20 @@ with mix
 words.
 """''',
         ),
+        (
+            "Thisisatest\n",
+            10,
+            '''"""Thisisatest."""''',
+        ),
+        (
+            "Thisisatest with mix words\n",
+            10,
+            '''"""
+Thisisatest
+with mix
+words.
+"""''',
+        ),
     ],
 )
 def test_format_string_as_docstring(string: str, expected_result: str, max_line_length: int) -> None:

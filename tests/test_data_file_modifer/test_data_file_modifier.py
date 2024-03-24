@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import Any, Final, Literal, Optional, Sequence, Tuple
+from typing import Any, Final, Literal, Mapping, Optional, Sequence, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
+import yaml
 
 from dynamic_pyi_generator.data_file_modifier.data_file_modifier import Comment, DataFileModifier
 from dynamic_pyi_generator.utils import TAB
@@ -48,6 +49,10 @@ class TestExtractKeyFromLine:
         "line, expected_output",
         [
             ("{separator}key: text", "key"),
+            ("{separator}- key: text", "key"),  # From list
+            ("{separator}-key: text", "key"),  # From list
+            ("{separator}-'key': text", "key"),  # From list
+            ("{separator}- 'key': text", "key"),  # From list
             ('{separator}"key": text', "key"),
             ("{separator}key_1: text", "key_1"),
             ("{separator}key 1: text", "key 1"),
@@ -83,19 +88,22 @@ class TestJoinMultiLineComments:
 
 class TestCountSpacesOrTabs:
     @pytest.mark.parametrize(
-        "line, expected_output",
+        "line, indentation, expected_output",
         [
-            ("key: text", ("none", 0)),
-            (" key: text", ("spaces", 1)),
-            ("  key: text", ("spaces", 2)),
-            ("   key: text", ("spaces", 3)),
-            ("\tkey: text", ("tabs", 1)),
-            ("\t\tkey: text", ("tabs", 2)),
-            ("\t\t\tkey: text", ("tabs", 3)),
+            ("key: text", "spaces", 0),
+            (" key: text", "spaces", 1),
+            ("  key: text", "spaces", 2),
+            ("   key: text", "spaces", 3),
+            ("\tkey: text", "tabs", 1),
+            ("\t\tkey: text", "tabs", 2),
+            ("\t\t\tkey: text", "tabs", 3),
+            ("-key: text", "spaces", 1),  # From list
+            ("- key: text", "spaces", 2),  # From list
+            (" - key: text", "spaces", 3),  # From list
         ],
     )
-    def test_method(self, line: str, expected_output: Tuple[str, int]) -> None:
-        assert expected_output == DataFileModifier._count_spaces_or_tabs_at_start(line)
+    def test_method(self, line: str, expected_output: int, indentation: Literal["spaces", "tabs"]) -> None:
+        assert expected_output == DataFileModifier._count_spaces_or_tabs_at_start(line, indendation=indentation)
 
 
 class TestExtractSingleBlockComments:
@@ -245,6 +253,23 @@ key: comment""",
                 2,
                 "",
             ),
+            (
+                """- key: comment
+# This is a comment
+""",
+                "below",
+                0,
+                "This is a comment.",
+            ),
+            (
+                """- key: comment
+  key2: comment
+  # This is a comment
+""",
+                "below",
+                1,
+                "This is a comment.",
+            ),
         ],
     )
     def test_method(
@@ -271,7 +296,7 @@ class TestExtractComments:
                         full_string="Doc for level1.",
                         associated_with_key="level1",
                         key_line=2,
-                        spacing_element=("none", 0),
+                        spacing_element=("spaces", 0),
                     ),
                     Comment(
                         full_string="Doc for key1.",
@@ -296,29 +321,57 @@ class TestExtractComments:
             (
                 "only_dicts_comments_below.yaml",
                 "below",
-                Comment(
-                    full_string="doc for level1.",
-                    associated_with_key="level1",
-                    key_line=2,
-                    spacing_element=("none", 0),
+                (
+                    Comment(
+                        full_string="Doc for level1.",
+                        associated_with_key="level1",
+                        key_line=1,
+                        spacing_element=("spaces", 0),
+                    ),
+                    Comment(
+                        full_string="Doc for key1.",
+                        associated_with_key="key1",
+                        key_line=3,
+                        spacing_element=("spaces", 2),
+                    ),
+                    Comment(
+                        full_string="Multi line comment for level2.",
+                        associated_with_key="level2",
+                        key_line=7,
+                        spacing_element=("spaces", 2),
+                    ),
+                    Comment(
+                        full_string="This is key3\n\nIt is just an example.",
+                        associated_with_key="key3",
+                        key_line=10,
+                        spacing_element=("spaces", 4),
+                    ),
                 ),
-                Comment(
-                    full_string="doc for key1.",
-                    associated_with_key="key1",
-                    key_line=3,
-                    spacing_element=("spaces", 2),
-                ),
-                Comment(
-                    full_string="multi line comment for level2.",
-                    associated_with_key="level2",
-                    key_line=7,
-                    spacing_element=("spaces", 2),
-                ),
-                Comment(
-                    full_string="This is key3\n\nIt is just an example.",
-                    associated_with_key="key3",
-                    key_line=10,
-                    spacing_element=("spaces", 4),
+            ),
+            (
+                "full_yaml_comments_above.yaml",
+                "above",
+                (
+                    (
+                        Comment(
+                            full_string="Comment for level1.",
+                            associated_with_key="level1",
+                            key_line=2,
+                            spacing_element=("spaces", 0),
+                        ),
+                        Comment(
+                            full_string="Comment for list1.",
+                            associated_with_key="list1",
+                            key_line=4,
+                            spacing_element=("spaces", 2),
+                        ),
+                        Comment(
+                            full_string="Comment for subkey1.",
+                            associated_with_key="subkey1",
+                            key_line=12,
+                            spacing_element=("spaces", 8),
+                        ),
+                    )
                 ),
             ),
         ],
@@ -331,3 +384,83 @@ class TestExtractComments:
     ) -> None:
         data_file_modifier = DataFileModifier(TEST_FILES_DIR / file, comments_are=comments_are)
         assert expected_output == data_file_modifier._extract_comments()
+
+
+class TestIntegration:
+    TEST_FILE: Final = TEST_FILES_DIR / "example.yaml"
+    PREFIX: Final = DataFileModifier.preffix
+
+    @pytest.mark.parametrize(
+        "file, comments_are, dict_to_be_created",
+        [
+            (
+                "only_dicts_comments_above.yaml",
+                "above",
+                {
+                    f"{PREFIX}level1": "Doc for level1.\n",
+                    "level1": {
+                        f"{PREFIX}key1": "Doc for key1.\n",
+                        f"{PREFIX}level2": "Multi line comment for level2.\n",
+                        "key1": "value1",
+                        "key2": "value2",
+                        "level2": {
+                            f"{PREFIX}key3": "This is key3\n\nIt is just an example.\n",
+                            "key3": "value3",
+                            "key4": "value4",
+                            "level3": {"key5": "value5", "key6": "value6"},
+                        },
+                    },
+                },
+            ),
+            (
+                "only_dicts_comments_below.yaml",
+                "below",
+                {
+                    f"{PREFIX}level1": "Doc for level1.\n",
+                    "level1": {
+                        f"{PREFIX}key1": "Doc for key1.\n",
+                        f"{PREFIX}level2": "Multi line comment for level2.\n",
+                        "key1": "value1",
+                        "key2": "value2",
+                        "level2": {
+                            f"{PREFIX}key3": "This is key3\n\nIt is just an example.\n",
+                            "key3": "value3",
+                            "key4": "value4",
+                            "level3": {"key5": "value5", "key6": "value6"},
+                        },
+                    },
+                },
+            ),
+            (
+                "full_yaml_comments_above.yaml",
+                "above",
+                {
+                    f"{PREFIX}level1": "Comment for level1.\n",
+                    "level1": {
+                        f"{PREFIX}list1": "Comment for list1.\n",
+                        "list1": ["item1", "item2", "item3"],
+                        "list2": [
+                            {
+                                "subitem1": {
+                                    f"{PREFIX}subkey1": "Comment for subkey1.\n",
+                                    "subkey1": "subvalue1",
+                                    "subkey2": "subvalue2",
+                                },
+                            },
+                            {"subitem2": {"subkey3": "subvalue3", "subkey4": "subvalue4"}},
+                        ],
+                    },
+                },
+            ),
+        ],
+    )
+    def test_method(
+        self, file: str, comments_are: Literal["above", "below"], dict_to_be_created: Mapping[str, object]
+    ) -> None:
+        data_file_modifier = DataFileModifier(TEST_FILES_DIR / file, comments_are=comments_are)
+        path = data_file_modifier.create_temporary_file_with_comments_as_keys()
+        assert dict_to_be_created == self.read_yaml(path)
+
+    def read_yaml(self, path: Union[Path, str]) -> Mapping[str, object]:
+        with open(path) as f:
+            return dict(yaml.load(f, Loader=yaml.SafeLoader))

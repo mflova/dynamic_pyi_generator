@@ -42,6 +42,7 @@ def format_string_as_docstring(string: str, *, max_line_length: int = 90) -> str
     Returns:
         str: The formatted docstring.
     """
+    string = string.rstrip("\n")
     if not string.endswith("."):
         string += "."
     docstring = '"""' + string + '"""'
