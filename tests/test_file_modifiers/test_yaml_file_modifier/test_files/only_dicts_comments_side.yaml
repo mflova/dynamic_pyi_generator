@@ -1,0 +1,10 @@
+---
+level1: # doc for level1
+  key1: value1 # doc for key1
+  key2: value2# non valid doc for key2
+  level2: # comment for level2
+    key3: value3  # comment for key3
+    key4: value4
+    level3:
+      key5: value5"# non valid comment"
+      key6: value6

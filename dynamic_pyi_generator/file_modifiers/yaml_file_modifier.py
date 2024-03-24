@@ -1,12 +1,30 @@
 # TODO:
+# Ignore side comments on lists
 # Also parse the comments at right if found.
 # Once I do it, I can append them to the full comment found either up or below
 import re
 import tempfile
+from collections import defaultdict
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Final, Iterable, List, Literal, Optional, Sequence, Set, Tuple, Union, cast
+from typing import (
+    Callable,
+    Final,
+    FrozenSet,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
+
+YAML_COMMENTS_POSITION = Literal["above", "below", "side"]
 
 
 @dataclass(frozen=True)
@@ -17,20 +35,34 @@ class Comment:
     spacing_element: Tuple[Literal["spaces", "tabs", "none"], int]
 
 
-class DataFileModifier:
+class YamlFileModifierError(Exception): ...
+
+
+class YamlFileModifier:
     path: Path
     lines: Tuple[str, ...]
-    comments_are: Literal["above", "below"]
+    comments_are: Tuple[YAML_COMMENTS_POSITION, ...]
     preffix: Final = "___"
 
-    def __init__(self, path: Union[str, Path], *, comments_are: Literal["above", "below"]) -> None:
+    def __init__(
+        self, path: Union[str, Path], *, comments_are: Union[YAML_COMMENTS_POSITION, Sequence[YAML_COMMENTS_POSITION]]
+    ) -> None:
+        if "above" in comments_are and "below" in comments_are:
+            raise YamlFileModifierError(
+                f"When choosing where the comments are located, you can choose any combination that does not combine "
+                f"`below` and `above` at the same time. Input given: {', '.join(comments_are)}"
+            )
         self.path = Path(path)
         self.lines = tuple(Path(path).read_text().splitlines())
+        comments_are = (comments_are,) if isinstance(comments_are, str) else tuple(comments_are)
         self.comments_are = comments_are
 
     @staticmethod
     def _capitalize_only_first_letter(string: str) -> str:
-        return string[0].upper() + string[1:]
+        try:
+            return string[0].upper() + string[1:]
+        except IndexError:
+            return string
 
     @staticmethod
     def _remove_spacing(line: str) -> str:
@@ -64,17 +96,17 @@ class DataFileModifier:
                     else:
                         if result.endswith("\n"):
                             single_line_comment_ = single_line_comment.strip()
-                            result += DataFileModifier._capitalize_only_first_letter(single_line_comment_)
+                            result += YamlFileModifier._capitalize_only_first_letter(single_line_comment_)
                         else:
                             result += ". " + single_line_comment.strip()
                 else:
                     single_line_comment_ = single_line_comment.strip()
                     if result.endswith("."):
-                        result += " " + DataFileModifier._capitalize_only_first_letter(single_line_comment_)
+                        result += " " + YamlFileModifier._capitalize_only_first_letter(single_line_comment_)
                     else:
                         if result.endswith("\n"):
                             single_line_comment_ = single_line_comment.strip()
-                            result += DataFileModifier._capitalize_only_first_letter(single_line_comment_)
+                            result += YamlFileModifier._capitalize_only_first_letter(single_line_comment_)
                         else:
                             result += " " + single_line_comment.strip()
             else:
@@ -85,7 +117,22 @@ class DataFileModifier:
             return result
         return result + "."
 
-    def _extract_single_block_comment(self, line_idx: int) -> str:
+    @staticmethod
+    def _extract_side_comment(line: str) -> str:
+        idx = YamlFileModifier._find_first_occurence_that_is_not_between(line, "#")
+        if not idx:
+            return ""
+        try:
+            if line[idx - 1] != " ":
+                return ""
+        except IndexError:
+            return ""
+        comment = line[idx + 1 :].strip().rstrip()
+        if comment and not comment.endswith("."):
+            return comment + "."
+        return comment
+
+    def _extract_single_block_comment(self, line_idx: int, *, comments_are: Literal["above", "below"]) -> str:
         # Find first non space/tab character
         try:
             line = self.lines[line_idx]
@@ -93,7 +140,7 @@ class DataFileModifier:
             return ""
         idx_first_char = line.find(line.strip()[0])
 
-        step: Final = -1 if self.comments_are == "above" else 1
+        step: Final = -1 if comments_are == "above" else 1
         increment = step
         multi_line_comments: List[str] = []
         with suppress(IndexError):
@@ -104,7 +151,7 @@ class DataFileModifier:
         if not multi_line_comments:
             return ""
 
-        if self.comments_are == "above":
+        if comments_are == "above":
             string = self._join_multi_line_comments(multi_line_comments[::-1])
         else:
             string = self._join_multi_line_comments(multi_line_comments)
@@ -112,7 +159,7 @@ class DataFileModifier:
 
     @staticmethod
     def _find_first_occurence_that_is_not_between(
-        line: str, occurence: str, not_between: Set[str] = {"'", '"'}
+        line: str, occurence: str, not_between: FrozenSet[str] = frozenset({"'", '"'})
     ) -> Optional[int]:
         between_quotes = False
         for i, char in enumerate(line):
@@ -124,12 +171,12 @@ class DataFileModifier:
 
     @staticmethod
     def _extract_key_from_line(line: str) -> str:
-        line = DataFileModifier._remove_spacing(line)
+        line = YamlFileModifier._remove_spacing(line)
         if line[0] == "-":  # Detect list cases
             line = " " + line[1:]
 
         idx_first_char = line.find(line.strip()[0])
-        idx_last_char = DataFileModifier._find_first_occurence_that_is_not_between(line=line, occurence=":")
+        idx_last_char = YamlFileModifier._find_first_occurence_that_is_not_between(line=line, occurence=":")
         if not idx_last_char:
             return ""
         line = line[idx_first_char:idx_last_char]
@@ -170,6 +217,7 @@ class DataFileModifier:
         indentation = self._detect_indentation(self.lines)
         if indentation == "??":
             return ()
+
         for idx, line in enumerate(self.lines):
             line_with_no_spacing = self._remove_spacing(line)
             if line_with_no_spacing[0].isalpha():
@@ -181,19 +229,26 @@ class DataFileModifier:
                 if not key:
                     continue
 
-                single_block_comment = self._extract_single_block_comment(idx)
-                if not single_block_comment:
-                    continue
+                for comments_are in self.comments_are:
+                    if comments_are == "above" or comments_are == "below":
+                        comment = self._extract_single_block_comment(idx, comments_are=comments_are)
+                        comment = self._capitalize_only_first_letter(comment)
+                    elif comments_are == "side":
+                        comment = self._extract_side_comment(line)
 
-                comments.append(
-                    Comment(
-                        full_string=self._capitalize_only_first_letter(single_block_comment),
-                        key_line=idx,
-                        spacing_element=(indentation, spaces_or_tabs),
-                        associated_with_key=key,
+                    if not comment:
+                        continue
+                    # Comments that are either below or above the keyword
+                    comments.append(
+                        Comment(
+                            full_string=comment,
+                            key_line=idx,
+                            spacing_element=(indentation, spaces_or_tabs),
+                            associated_with_key=key,
+                        )
                     )
-                )
-        return tuple(comments)
+
+        return self._merge_comments(comments)
 
     @staticmethod
     def _format_comment_as_multiline_yaml(comment: Comment) -> str:
@@ -204,10 +259,30 @@ class DataFileModifier:
         multiple_indentation = indent * (comment.spacing_element[1] + 1)
         return f"\n{multiple_indentation}".join(lines)
 
+    @staticmethod
+    def _merge_comments(comments: Sequence[Comment]) -> Tuple[Comment, ...]:
+        comments_in_line: Mapping[int, List[Comment]] = defaultdict(list)
+        for comment in comments:
+            comments_in_line[comment.key_line].append(comment)
+
+        merged_comments: List[Comment] = []
+        for comments_lst in comments_in_line.values():
+            string = "\n\n".join(comment.full_string for comment in comments_lst)
+            merged_comments.append(
+                Comment(
+                    full_string=string,
+                    key_line=comments_lst[0].key_line,
+                    associated_with_key=comments_lst[0].associated_with_key,
+                    spacing_element=comments_lst[0].spacing_element,
+                )
+            )
+        return tuple(merged_comments)
+
     def _create_temporary_string_with_comments_as_keys(self) -> str:
         comments = self._extract_comments()
+        reverse_order_comments = sorted(comments, key=lambda comment: comment.key_line, reverse=True)
         new_lines = list(self.lines).copy()
-        for comment in reversed(comments):
+        for comment in reverse_order_comments:
             key = self.preffix + comment.associated_with_key
             indentation = "\t" if comment.spacing_element[0] == "tabs" else " "
             string = (

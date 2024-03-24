@@ -5,7 +5,7 @@ from typing import Any, List, Literal, Tuple, Union, overload
 from dynamic_pyi_generator.utils import TAB
 
 
-class FileHandler:
+class PyFileModifier:
     lines: List[str]
 
     def __init__(self, representation: str) -> None:

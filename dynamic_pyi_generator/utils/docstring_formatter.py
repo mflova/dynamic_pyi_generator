@@ -14,20 +14,23 @@ def _split_string(string: str, *, max_line_length: int) -> Tuple[str, ...]:
             maximum line length.
     """
     substrings: List[str] = []
-    words = string.split()
-    current_substring = ""
-    for word in words:
-        if len(current_substring) + len(word) + 1 <= max_line_length:
-            if current_substring:
-                current_substring += " " + word
+    for line in string.split("\n"):
+        if not line:
+            substrings.append("")
+        words = line.split()
+        current_substring = ""
+        for word in words:
+            if len(current_substring) + len(word) + 1 <= max_line_length:
+                if current_substring:
+                    current_substring += " " + word
+                else:
+                    current_substring = word
             else:
+                if current_substring:
+                    substrings.append(current_substring)
                 current_substring = word
-        else:
-            if current_substring:
-                substrings.append(current_substring)
-            current_substring = word
-    if current_substring:
-        substrings.append(current_substring)
+        if current_substring:
+            substrings.append(current_substring)
     return tuple(substrings)
 
 
@@ -46,9 +49,9 @@ def format_string_as_docstring(string: str, *, max_line_length: int = 90) -> str
     if not string.endswith("."):
         string += "."
     docstring = '"""' + string + '"""'
-    if len(docstring) <= max_line_length:
+    if len(docstring) <= max_line_length and "\n" not in docstring:
         return docstring
     substrings = _split_string(string, max_line_length=max_line_length)
-    if len(substrings) == 1:
+    if len(substrings) == 1 and "\n" not in docstring:
         return docstring
     return '"""\n' + "\n".join(substrings) + '\n"""'

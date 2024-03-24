@@ -2,14 +2,14 @@ from typing import List, Tuple, Union
 
 import pytest
 
-from dynamic_pyi_generator.file_handler import FileHandler
+from dynamic_pyi_generator.file_modifiers.py_file_modifier import PyFileModifier
 
 
-class TestFileHandler:
+class TestPyFileModifier:
     """Test class for the FileHandler class."""
 
     @pytest.fixture
-    def file_handler(self) -> FileHandler:
+    def file_handler(self) -> PyFileModifier:
         representation = """class PyiGenerator:
 loader_pyi: str
 classes_created: "TypeAlias" = Any
@@ -61,13 +61,13 @@ def run():
 def run():
     pass"""
 
-        return FileHandler(representation)
+        return PyFileModifier(representation)
 
     @pytest.mark.parametrize(
         "decorator_name, method_name, expected_idx",
         [
-            ("staticmethod", "test", [31]),
-            ("overload", "run", [45, 49]),
+            ("staticmethod", "test", [30]),
+            ("overload", "run", [43, 47]),
             ("new_decorator", "run", []),
             ("final", "__init__", [7]),
             ("final", "new_method", []),
@@ -77,7 +77,7 @@ def run():
         self,
         decorator_name: str,
         expected_idx: List[int],
-        file_handler: FileHandler,
+        file_handler: PyFileModifier,
         method_name: str,
     ) -> None:
         assert file_handler.search_decorator(decorator_name=decorator_name, method_name=method_name) == expected_idx
@@ -87,24 +87,23 @@ def run():
         [
             ("__init__", False, [8]),
             ("__init__", True, [7]),
-            ("test", False, [32]),
-            ("test", True, [31]),
-            ("_find_line_idx", False, [36]),
-            ("_find_line_idx", True, [35]),
-            ("run", False, [46, 50]),
-            ("run", True, [45, 49]),
+            ("test", False, [31]),
+            ("test", True, [30]),
+            ("_find_line_idx", False, [35]),
+            ("_find_line_idx", True, [34]),
+            ("run", False, [44, 48]),
+            ("run", True, [43, 47]),
         ],
     )
     def test_search_method(
         self,
-        file_handler: FileHandler,
+        file_handler: PyFileModifier,
         method_name: str,
         return_index_above_decorator: bool,
         expected_idx: List[int],
     ) -> None:
-        assert (
-            file_handler.search_method(method_name, return_index_above_decorator=return_index_above_decorator)
-            == expected_idx
+        assert expected_idx == file_handler.search_method(
+            method_name, return_index_above_decorator=return_index_above_decorator
         )
 
     @pytest.mark.parametrize(
@@ -116,7 +115,7 @@ def run():
     )
     def test_it_is_string(
         self,
-        file_handler: FileHandler,
+        file_handler: PyFileModifier,
         string: str,
         expected_result: bool,
         keyword_of_interest: str,
@@ -130,7 +129,7 @@ def run():
             ["@overload", 40],
         ),
     )
-    def test_add_line(self, file_handler: FileHandler, line: str, idx: int) -> None:
+    def test_add_line(self, file_handler: PyFileModifier, line: str, idx: int) -> None:
         len_before = len(file_handler.lines)
         file_handler.add_line(idx, line)
         assert file_handler.lines[idx] == line
@@ -148,7 +147,7 @@ def run():
     )
     def test_search_assignement(
         self,
-        file_handler: FileHandler,
+        file_handler: PyFileModifier,
         variable: str,
         expected_output: List[Tuple[int, str]],
     ) -> None:
@@ -163,7 +162,7 @@ def run():
     )
     def test_search_line(
         self,
-        file_handler: FileHandler,
+        file_handler: PyFileModifier,
         keyword: str,
         expected_idx: int,
     ) -> None:
@@ -178,7 +177,7 @@ def run():
     )
     def test_replace_line(
         self,
-        file_handler: FileHandler,
+        file_handler: PyFileModifier,
         idx: int,
         line: str,
     ) -> None:
@@ -217,7 +216,7 @@ if TYPE_CHECKING:
         in_type_checking_block: bool,
         expected_string: str,
     ) -> None:
-        file_handler = FileHandler(
+        file_handler = PyFileModifier(
             """import C
 
 if TYPE_CHECKING:
@@ -236,7 +235,7 @@ if TYPE_CHECKING:
     )
     def test_replace_assignment(
         self,
-        file_handler: FileHandler,
+        file_handler: PyFileModifier,
         label: Union[int, str],
         value: str,
     ) -> None:
@@ -263,7 +262,7 @@ if TYPE_CHECKING:
     )
     def test_get_signature(
         self,
-        file_handler: FileHandler,
+        file_handler: PyFileModifier,
         method_name: str,
         expected_output: Tuple[str, slice],
     ) -> None:
@@ -274,7 +273,7 @@ class TestFileHandlerRemoval:
     """Test those remove-based methods from FileHandler."""
 
     @pytest.fixture
-    def file_handler(self) -> FileHandler:
+    def file_handler(self) -> PyFileModifier:
         representation = """
 
 def method1():
@@ -303,11 +302,11 @@ class PyiGenerator:
     @overload
     def method3(self):
         pass"""
-        return FileHandler(representation)
+        return PyFileModifier(representation)
 
     def test_remove_method_bodies(
         self,
-        file_handler: FileHandler,
+        file_handler: PyFileModifier,
     ) -> None:
         file_handler.remove_all_method_bodies()
         expected_string = """def method1():...
@@ -332,7 +331,7 @@ class PyiGenerator:
 
     def test_remove_private_methods(
         self,
-        file_handler: FileHandler,
+        file_handler: PyFileModifier,
     ) -> None:
         file_handler.remove_all_private_methods()
         expected_string = """

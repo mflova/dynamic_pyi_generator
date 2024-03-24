@@ -45,6 +45,10 @@
     ]
 
 - tool: pytest
+  extra_args: --collect-only
+  tool_desc: Check that all tests can be launched
+
+- tool: pytest
   extra_args: --tb=line
   tool_desc: Launch all tests in the repository
   suggestions: Not all tests passed. Run `poetry run pytest -vv` to get a better colored output

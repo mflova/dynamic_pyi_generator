@@ -3,6 +3,8 @@
 
 feat:
 
+- Strategy: Type hint Type aliases and keys within typedDict as `Final`?
+- Parsing docs: What happens if there is a list of same dictionaries and one comment is added to only one key within one of the list elements?
 - Create `TypedDict` with docstrings if those are present within a file
   - Ideas: Two modes:
     - Either giving a specific key that will be used specifically for docs

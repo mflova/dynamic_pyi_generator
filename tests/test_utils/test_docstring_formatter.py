@@ -12,6 +12,8 @@ from dynamic_pyi_generator.utils.docstring_formatter import _split_string, forma
         ("This is a test", 10, ("This is a", "test")),
         ("", 90, ()),
         ("Thisisatest", 2, ("Thisisatest",)),
+        ("Hello\nworld", 90, ("Hello", "world")),
+        ("Hello\n\nworld", 90, ("Hello", "", "world")),
         ("This Thisisatest", 6, ("This", "Thisisatest")),
     ],
 )
@@ -49,6 +51,14 @@ words.
             "Thisisatest\n",
             10,
             '''"""Thisisatest."""''',
+        ),
+        (
+            "Hello\nworld\n",
+            90,
+            '''"""
+Hello
+world.
+"""''',
         ),
         (
             "Thisisatest with mix words\n",

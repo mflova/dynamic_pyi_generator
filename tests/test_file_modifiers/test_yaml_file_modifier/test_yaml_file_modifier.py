@@ -1,15 +1,43 @@
 from pathlib import Path
-from typing import Any, Final, Literal, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Final, Literal, Mapping, MutableSequence, Optional, Sequence, Tuple, Union
 from unittest.mock import MagicMock, patch
 
 import pytest
 import yaml
+from yaml.parser import ParserError
 
-from dynamic_pyi_generator.data_file_modifier.data_file_modifier import Comment, DataFileModifier
+from dynamic_pyi_generator.file_modifiers.yaml_file_modifier import (
+    YAML_COMMENTS_POSITION,
+    Comment,
+    YamlFileModifier,
+    YamlFileModifierError,
+)
 from dynamic_pyi_generator.utils import TAB
 
 THIS_DIR: Final = Path(__file__).parent
 TEST_FILES_DIR: Final = THIS_DIR / "test_files"
+
+
+class TestExceptions:
+    def test_wrong_inputs(self) -> None:
+        with pytest.raises(YamlFileModifierError):
+            YamlFileModifier("", comments_are=["above", "below"])
+
+
+class TestCapitalizeOnlyFirstLetter:
+    @pytest.mark.parametrize(
+        "string, expected_output",
+        [
+            ("", ""),
+            (" ", " "),
+            ("hey", "Hey"),
+            ("Hey", "Hey"),
+            ("Hey Joan", "Hey Joan"),
+            ("Hey joan", "Hey joan"),
+        ],
+    )
+    def test_wrong_inputs(self, string: str, expected_output: str) -> None:
+        assert expected_output == YamlFileModifier._capitalize_only_first_letter(string)
 
 
 class TestRemoveSpacing:
@@ -23,7 +51,7 @@ class TestRemoveSpacing:
         ],
     )
     def test_method(self, line: str, expected_output: str) -> None:
-        assert expected_output == DataFileModifier._remove_spacing(line)
+        assert expected_output == YamlFileModifier._remove_spacing(line)
 
 
 class TestFindFirstOccurenceThatIsNotBetween:
@@ -38,8 +66,8 @@ class TestFindFirstOccurenceThatIsNotBetween:
         ],
     )
     def test_method(self, line: str, occurence: str, expected_output: Optional[int]) -> None:
-        assert expected_output == DataFileModifier._find_first_occurence_that_is_not_between(
-            line, occurence=occurence, not_between={"'", '"'}
+        assert expected_output == YamlFileModifier._find_first_occurence_that_is_not_between(
+            line, occurence=occurence, not_between=frozenset({"'", '"'})
         )
 
 
@@ -61,7 +89,7 @@ class TestExtractKeyFromLine:
         ],
     )
     def test_method(self, line: str, expected_output: str, separator: str) -> None:
-        assert expected_output == DataFileModifier._extract_key_from_line(line.format(separator=separator))
+        assert expected_output == YamlFileModifier._extract_key_from_line(line.format(separator=separator))
 
 
 class TestJoinMultiLineComments:
@@ -83,7 +111,7 @@ class TestJoinMultiLineComments:
         ],
     )
     def test_method(self, lines: Sequence[str], expected_output: str) -> None:
-        assert expected_output == DataFileModifier._join_multi_line_comments(lines)
+        assert expected_output == YamlFileModifier._join_multi_line_comments(lines)
 
 
 class TestCountSpacesOrTabs:
@@ -103,19 +131,43 @@ class TestCountSpacesOrTabs:
         ],
     )
     def test_method(self, line: str, expected_output: int, indentation: Literal["spaces", "tabs"]) -> None:
-        assert expected_output == DataFileModifier._count_spaces_or_tabs_at_start(line, indendation=indentation)
+        assert expected_output == YamlFileModifier._count_spaces_or_tabs_at_start(line, indendation=indentation)
+
+
+class TestExtractSideComment:
+    @pytest.mark.parametrize(
+        "line, expected_output",
+        [
+            ("key: text# comment", ""),
+            ("key: text #", ""),
+            ("key: text # ", ""),
+            ("key: text #  ", ""),
+            ("key: text # comment", "comment."),
+            ("key: text # Comment", "Comment."),
+            ("key: text #  Comment", "Comment."),
+            ("key: text #Comment", "Comment."),
+            ("key: text # comment\n", "comment."),
+            ("key: '#' # comment", "comment."),
+            ("""key: '#" # comment""", "comment."),
+            ('key: "#" # comment', "comment."),
+            ('key: "#"', ""),
+            ("key: text", ""),
+        ],
+    )
+    def test_method(self, line: str, expected_output: str) -> None:
+        assert expected_output == YamlFileModifier._extract_side_comment(line)
 
 
 class TestExtractSingleBlockComments:
     @pytest.fixture
-    def data_file_modifier(self, content: str, comments_are: Literal["above", "below"]) -> DataFileModifier:
+    def data_file_modifier(self, content: str, comments_are: Literal["above", "below"]) -> YamlFileModifier:
         with patch("pathlib.Path.read_text", autospec=True) as mock_read:
 
             def read_text_side_effect(self: Path, *args: Any, **kwargs: Any) -> str:
                 return content
 
             mock_read.side_effect = read_text_side_effect
-            return DataFileModifier(path="", comments_are=comments_are)
+            return YamlFileModifier(path="", comments_are=comments_are)
 
     @pytest.fixture
     def comments_are(self) -> Literal["above", "below"]:
@@ -276,10 +328,10 @@ key: comment""",
         self,
         line_idx: int,
         expected_output: str,
-        data_file_modifier: DataFileModifier,
+        data_file_modifier: YamlFileModifier,
         comments_are: Literal["above", "below"],
     ) -> None:
-        assert expected_output == data_file_modifier._extract_single_block_comment(line_idx)
+        assert expected_output == data_file_modifier._extract_single_block_comment(line_idx, comments_are=comments_are)
 
 
 class TestExtractComments:
@@ -349,7 +401,37 @@ class TestExtractComments:
                 ),
             ),
             (
-                "full_yaml_comments_above.yaml",
+                "only_dicts_comments_side.yaml",
+                "side",
+                (
+                    Comment(
+                        full_string="doc for level1.",
+                        associated_with_key="level1",
+                        key_line=1,
+                        spacing_element=("spaces", 0),
+                    ),
+                    Comment(
+                        full_string="doc for key1.",
+                        associated_with_key="key1",
+                        key_line=2,
+                        spacing_element=("spaces", 2),
+                    ),
+                    Comment(
+                        full_string="comment for level2.",
+                        associated_with_key="level2",
+                        key_line=4,
+                        spacing_element=("spaces", 2),
+                    ),
+                    Comment(
+                        full_string="comment for key3.",
+                        associated_with_key="key3",
+                        key_line=5,
+                        spacing_element=("spaces", 4),
+                    ),
+                ),
+            ),
+            (
+                "full_yaml_comments_above_and_side.yaml",
                 "above",
                 (
                     (
@@ -382,13 +464,125 @@ class TestExtractComments:
         comments_are: Literal["above", "below"],
         expected_output: Tuple[Comment, ...],
     ) -> None:
-        data_file_modifier = DataFileModifier(TEST_FILES_DIR / file, comments_are=comments_are)
+        data_file_modifier = YamlFileModifier(TEST_FILES_DIR / file, comments_are=comments_are)
         assert expected_output == data_file_modifier._extract_comments()
+
+
+class TestMergeComments:
+    @pytest.mark.parametrize(
+        "comments, expected_output",
+        [
+            [
+                (
+                    Comment(
+                        full_string="Comment for key1.",
+                        associated_with_key="key1",
+                        key_line=2,
+                        spacing_element=("spaces", 0),
+                    ),
+                    Comment(
+                        full_string="Comment 2 for key1.",
+                        associated_with_key="key1",
+                        key_line=2,
+                        spacing_element=("spaces", 0),
+                    ),
+                ),
+                (
+                    Comment(
+                        full_string="Comment for key1.\n\nComment 2 for key1.",
+                        associated_with_key="key1",
+                        key_line=2,
+                        spacing_element=("spaces", 0),
+                    ),
+                ),
+            ],
+            [
+                (
+                    Comment(
+                        full_string="Comment for key1.",
+                        associated_with_key="key1",
+                        key_line=2,
+                        spacing_element=("spaces", 0),
+                    ),
+                    Comment(
+                        full_string="Comment 2 for key1.",
+                        associated_with_key="key1",
+                        key_line=2,
+                        spacing_element=("spaces", 0),
+                    ),
+                    Comment(
+                        full_string="Comment for key2.",
+                        associated_with_key="key2",
+                        key_line=3,
+                        spacing_element=("spaces", 2),
+                    ),
+                ),
+                (
+                    Comment(
+                        full_string="Comment for key1.\n\nComment 2 for key1.",
+                        associated_with_key="key1",
+                        key_line=2,
+                        spacing_element=("spaces", 0),
+                    ),
+                    Comment(
+                        full_string="Comment for key2.",
+                        associated_with_key="key2",
+                        key_line=3,
+                        spacing_element=("spaces", 2),
+                    ),
+                ),
+            ],
+            [
+                (
+                    Comment(
+                        full_string="Comment for key1.",
+                        associated_with_key="key1",
+                        key_line=2,
+                        spacing_element=("spaces", 0),
+                    ),
+                    Comment(
+                        full_string="Comment 2 for key1.",
+                        associated_with_key="key1",
+                        key_line=2,
+                        spacing_element=("spaces", 0),
+                    ),
+                    Comment(
+                        full_string="Comment for key2.",
+                        associated_with_key="key2",
+                        key_line=3,
+                        spacing_element=("spaces", 2),
+                    ),
+                    Comment(
+                        full_string="Comment 2 for key2.",
+                        associated_with_key="key2",
+                        key_line=3,
+                        spacing_element=("spaces", 2),
+                    ),
+                ),
+                (
+                    Comment(
+                        full_string="Comment for key1.\n\nComment 2 for key1.",
+                        associated_with_key="key1",
+                        key_line=2,
+                        spacing_element=("spaces", 0),
+                    ),
+                    Comment(
+                        full_string="Comment for key2.\n\nComment 2 for key2.",
+                        associated_with_key="key2",
+                        key_line=3,
+                        spacing_element=("spaces", 2),
+                    ),
+                ),
+            ],
+        ],
+    )
+    def test_method(self, comments: Sequence[Comment], expected_output: Sequence[Comment]) -> None:
+        assert expected_output == YamlFileModifier._merge_comments(comments)
 
 
 class TestIntegration:
     TEST_FILE: Final = TEST_FILES_DIR / "example.yaml"
-    PREFIX: Final = DataFileModifier.preffix
+    PREFIX: Final = YamlFileModifier.preffix
 
     @pytest.mark.parametrize(
         "file, comments_are, dict_to_be_created",
@@ -432,7 +626,7 @@ class TestIntegration:
                 },
             ),
             (
-                "full_yaml_comments_above.yaml",
+                "full_yaml_comments_above_and_side.yaml",
                 "above",
                 {
                     f"{PREFIX}level1": "Comment for level1.\n",
@@ -444,7 +638,68 @@ class TestIntegration:
                                 "subitem1": {
                                     f"{PREFIX}subkey1": "Comment for subkey1.\n",
                                     "subkey1": "subvalue1",
-                                    "subkey2": "subvalue2",
+                                    "subkey2": "subvalue2#Not a comment",
+                                },
+                            },
+                            {"subitem2": {"subkey3": "subvalue3", "subkey4": "subvalue4"}},
+                        ],
+                    },
+                },
+            ),
+            (
+                "full_yaml_comments_above_and_side.yaml",
+                "side",
+                {
+                    "level1": {
+                        "list1": ["item1", "item2", "item3"],
+                        "list2": [
+                            {
+                                "subitem1": {
+                                    f"{PREFIX}subkey1": "[mm].\n",
+                                    "subkey1": "subvalue1",
+                                    "subkey2": "subvalue2#Not a comment",
+                                },
+                            },
+                            {"subitem2": {"subkey3": "subvalue3", "subkey4": "subvalue4"}},
+                        ],
+                    },
+                },
+            ),
+            (
+                "full_yaml_comments_above_and_side.yaml",
+                ["above", "side"],
+                {
+                    f"{PREFIX}level1": "Comment for level1.\n",
+                    "level1": {
+                        f"{PREFIX}list1": "Comment for list1.\n",
+                        "list1": ["item1", "item2", "item3"],
+                        "list2": [
+                            {
+                                "subitem1": {
+                                    f"{PREFIX}subkey1": "Comment for subkey1.\n\n[mm].\n",
+                                    "subkey1": "subvalue1",
+                                    "subkey2": "subvalue2#Not a comment",
+                                },
+                            },
+                            {"subitem2": {"subkey3": "subvalue3", "subkey4": "subvalue4"}},
+                        ],
+                    },
+                },
+            ),
+            (
+                "full_yaml_comments_above_and_side.yaml",
+                ["side", "above"],
+                {
+                    f"{PREFIX}level1": "Comment for level1.\n",
+                    "level1": {
+                        f"{PREFIX}list1": "Comment for list1.\n",
+                        "list1": ["item1", "item2", "item3"],
+                        "list2": [
+                            {
+                                "subitem1": {
+                                    f"{PREFIX}subkey1": "[mm].\n\nComment for subkey1.\n",
+                                    "subkey1": "subvalue1",
+                                    "subkey2": "subvalue2#Not a comment",
                                 },
                             },
                             {"subitem2": {"subkey3": "subvalue3", "subkey4": "subvalue4"}},
@@ -455,12 +710,16 @@ class TestIntegration:
         ],
     )
     def test_method(
-        self, file: str, comments_are: Literal["above", "below"], dict_to_be_created: Mapping[str, object]
+        self, file: str, comments_are: YAML_COMMENTS_POSITION, dict_to_be_created: Mapping[str, object]
     ) -> None:
-        data_file_modifier = DataFileModifier(TEST_FILES_DIR / file, comments_are=comments_are)
+        data_file_modifier = YamlFileModifier(TEST_FILES_DIR / file, comments_are=comments_are)
         path = data_file_modifier.create_temporary_file_with_comments_as_keys()
         assert dict_to_be_created == self.read_yaml(path)
 
     def read_yaml(self, path: Union[Path, str]) -> Mapping[str, object]:
+        Path("delete.yaml").write_text(path.read_text())
         with open(path) as f:
-            return dict(yaml.load(f, Loader=yaml.SafeLoader))
+            try:
+                return dict(yaml.load(f, Loader=yaml.SafeLoader))
+            except ParserError as error:
+                pytest.fail(f"Generated yaml file cannot be read: {error}")
