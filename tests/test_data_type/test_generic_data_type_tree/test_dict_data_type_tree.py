@@ -1,9 +1,10 @@
-from typing import Callable, Dict, Final, Iterable
+from typing import Any, Callable, Dict, Final, Iterable
 
 import pytest
 
 from dynamic_pyi_generator.data_type_tree import data_type_tree_factory
 from dynamic_pyi_generator.data_type_tree.generic_type import DictDataTypeTree, MappingDataTypeTree
+from dynamic_pyi_generator.file_modifiers.yaml_file_modifier import YamlFileModifier
 from dynamic_pyi_generator.strategies import ParsingStrategies
 from dynamic_pyi_generator.utils import TAB
 
@@ -27,38 +28,53 @@ class TestGetStrPy:
     imports_to_check: Final = ("Mapping", "Any", "dict", "TypedDict", "MappingProxyType")
     """Imports that will be checked in case they were needed."""
 
-    # fmt: off
     @pytest.mark.parametrize(
         "tree, expected_output, expected_n_childs",
         [
             (
-                DictDataTypeTree({"name": "Joan"}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=0)),
+                DictDataTypeTree(
+                    {"name": "Joan"}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=0)
+                ),
                 f"""class {NAME}(TypedDict):
 {TAB}name: str""",
                 1,
             ),
             (
-                DictDataTypeTree({"age": 22}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=0)),
+                DictDataTypeTree(
+                    {"age": 22}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=0)
+                ),
                 f"""class {NAME}(TypedDict):
 {TAB}age: int""",
                 1,
             ),
             (
-                DictDataTypeTree({"name": "Joan", "age": 21}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=0)),
+                DictDataTypeTree(
+                    {"name": "Joan", "age": 21},
+                    name=NAME,
+                    strategies=ParsingStrategies(min_height_to_define_type_alias=0),
+                ),
                 f"""class {NAME}(TypedDict):
 {TAB}name: str
 {TAB}age: int""",
                 2,
             ),
             (
-                DictDataTypeTree({"name": "Joan", "kids": ["A", "B"]}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=0)),
+                DictDataTypeTree(
+                    {"name": "Joan", "kids": ["A", "B"]},
+                    name=NAME,
+                    strategies=ParsingStrategies(min_height_to_define_type_alias=0),
+                ),
                 f"""class {NAME}(TypedDict):
 {TAB}name: str
 {TAB}kids: {NAME}Kids""",
                 2,
             ),
             (
-                DictDataTypeTree({"name": "Joan", "kids": ["A", "B"], "parents": ["C", "D"]}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=0)),
+                DictDataTypeTree(
+                    {"name": "Joan", "kids": ["A", "B"], "parents": ["C", "D"]},
+                    name=NAME,
+                    strategies=ParsingStrategies(min_height_to_define_type_alias=0),
+                ),
                 f"""class {NAME}(TypedDict):
 {TAB}name: str
 {TAB}kids: {NAME}Kids
@@ -67,7 +83,6 @@ class TestGetStrPy:
             ),
         ],
     )
-    # fmt: on
     def test_get_str_typed_dict_py(
         self,
         tree: DictDataTypeTree,
@@ -88,12 +103,15 @@ class TestGetStrPy:
         assert expected_output == tree.get_str_top_node()
         assert_imports(tree, self.imports_to_check)
 
-    # fmt: off
     @pytest.mark.parametrize(
         "tree, expected_output, expected_n_childs",
         [
             (
-                DictDataTypeTree({"name and surname": "Joan B."}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=0)),
+                DictDataTypeTree(
+                    {"name and surname": "Joan B."},
+                    name=NAME,
+                    strategies=ParsingStrategies(min_height_to_define_type_alias=0),
+                ),
                 f"""{NAME} = TypedDict(
     "{NAME}",
     {{
@@ -103,7 +121,11 @@ class TestGetStrPy:
                 1,
             ),
             (
-                DictDataTypeTree({"$": 22.0, "own_list": [1, 2, 3]}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=0)),
+                DictDataTypeTree(
+                    {"$": 22.0, "own_list": [1, 2, 3]},
+                    name=NAME,
+                    strategies=ParsingStrategies(min_height_to_define_type_alias=0),
+                ),
                 f"""{NAME} = TypedDict(
     "{NAME}",
     {{
@@ -114,7 +136,11 @@ class TestGetStrPy:
                 2,
             ),
             (
-                DictDataTypeTree({"$": 22, "my_list": [1, 2, 3], "my_list2": [2, 3]}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=0)),
+                DictDataTypeTree(
+                    {"$": 22, "my_list": [1, 2, 3], "my_list2": [2, 3]},
+                    name=NAME,
+                    strategies=ParsingStrategies(min_height_to_define_type_alias=0),
+                ),
                 f"""{NAME} = TypedDict(
     "{NAME}",
     {{
@@ -127,7 +153,6 @@ class TestGetStrPy:
             ),
         ],
     )
-    # fmt: on
     def test_get_str_typed_dict_functional_syntax_py(
         self,
         tree: DictDataTypeTree,
@@ -155,25 +180,31 @@ class TestGetStrHeight:
     imports_to_check: Final = ("Mapping", "Any", "dict", "TypedDict", "MappingProxyType")
     """Imports that will be checked in case they were needed."""
 
-    # fmt: off
     @pytest.mark.parametrize(
         "tree, expected_output",
         [
             (
-                DictDataTypeTree({"name": "Joan", "kids": ["A", "B"]}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=0)),
+                DictDataTypeTree(
+                    {"name": "Joan", "kids": ["A", "B"]},
+                    name=NAME,
+                    strategies=ParsingStrategies(min_height_to_define_type_alias=0),
+                ),
                 f"""class {NAME}(TypedDict):
 {TAB}name: str
 {TAB}kids: {NAME}Kids""",
             ),
             (
-                DictDataTypeTree({"name": "Joan", "kids": ["A", "B"]}, name=NAME, strategies=ParsingStrategies(min_height_to_define_type_alias=1)),
+                DictDataTypeTree(
+                    {"name": "Joan", "kids": ["A", "B"]},
+                    name=NAME,
+                    strategies=ParsingStrategies(min_height_to_define_type_alias=1),
+                ),
                 f"""class {NAME}(TypedDict):
 {TAB}name: str
 {TAB}kids: List[str]""",
             ),
         ],
     )
-    # fmt: on
     def test_get_str_py_based_on_height(
         self,
         tree: DictDataTypeTree,
@@ -190,7 +221,6 @@ class TestGetStrHeight:
         """
         assert expected_output == tree.get_str_top_node()
 
-    # fmt: off
     @pytest.mark.parametrize(
         "data, min_height, expected_output",
         [
@@ -199,7 +229,6 @@ class TestGetStrHeight:
             ([2, {"name": "Joan", "kids": ["A", "B"]}], 2, f"{NAME} = List[Union[ExampleDict, int]]"),
         ],
     )
-    # fmt: on
     def test_permissions(self, data: object, min_height: int, expected_output: str) -> None:
         error = "No matter the minimum height set up, `TypedDict` should always have preference"
         tree = data_type_tree_factory(
@@ -208,26 +237,36 @@ class TestGetStrHeight:
         assert expected_output == tree.get_str_top_node(), error
 
 
-class TestDocstringFromKey:
+class TestClassDocstringFromKey:
     NAME: Final = "Example"
 
-    # fmt: off
     @pytest.mark.parametrize(
         "tree, expected_output",
         [
-            (DictDataTypeTree(data={"name": "Joan", "doc": "This is a docstring"}, name=NAME, strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc")),
-             f'''class {NAME}(TypedDict):
+            (
+                DictDataTypeTree(
+                    data={"name": "Joan", "doc": "This is a docstring"},
+                    name=NAME,
+                    strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc"),
+                ),
+                f'''class {NAME}(TypedDict):
 {TAB}"""This is a docstring."""
 
 {TAB}name: str
-{TAB}doc: str'''),
-            (DictDataTypeTree(data={"name": "Joan", "doc": "This is a docstring"}, name=NAME, strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc2")),
-             f'''class {NAME}(TypedDict):
+{TAB}doc: str''',
+            ),
+            (
+                DictDataTypeTree(
+                    data={"name": "Joan", "doc": "This is a docstring"},
+                    name=NAME,
+                    strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc2"),
+                ),
+                f"""class {NAME}(TypedDict):
 {TAB}name: str
-{TAB}doc: str'''),
+{TAB}doc: str""",
+            ),
         ],
     )
-    # fmt: on
     def test_docstring_is_created(self, tree: DictDataTypeTree, expected_output: str) -> None:
         assert expected_output == tree.get_str_top_node()
 
@@ -257,3 +296,79 @@ class TestDocstringFromKey:
             assert expected_last_line == tree.get_str_top_node().splitlines()[-1]
         else:
             assert '""""' not in tree.get_str_top_node().splitlines()[-1]
+
+
+class TestKeyDocstring:
+    NAME: Final = "Example"
+    PREFFIX: Final = YamlFileModifier.preffix
+
+    @pytest.mark.parametrize(
+        "tree, expected_output",
+        [
+            (
+                DictDataTypeTree(
+                    data={"name": "Joan", "age": 22, f"{PREFFIX}name": "This is name doc"},
+                    name=NAME,
+                    strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc"),
+                ),
+                f'''class {NAME}(TypedDict):
+{TAB}name: str
+{TAB}"""This is name doc."""
+{TAB}age: int''',
+            ),
+            (
+                DictDataTypeTree(
+                    data={"name": "Joan", "age": 22, f"{PREFFIX}age": "This is age doc"},
+                    name=NAME,
+                    strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc"),
+                ),
+                f'''class {NAME}(TypedDict):
+{TAB}name: str
+{TAB}age: int
+{TAB}"""This is age doc."""''',
+            ),
+            (
+                DictDataTypeTree(
+                    data={
+                        "name": "Joan",
+                        "age": 22,
+                        f"{PREFFIX}age": "This is age doc",
+                        f"{PREFFIX}name": "This is name doc",
+                    },
+                    name=NAME,
+                    strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc"),
+                ),
+                f'''class {NAME}(TypedDict):
+{TAB}name: str
+{TAB}"""This is name doc."""
+{TAB}age: int
+{TAB}"""This is age doc."""''',
+            ),
+        ],
+    )
+    def test_key_docstring_is_created(self, tree: DictDataTypeTree, expected_output: str) -> None:
+        assert expected_output == tree.get_str_top_node()
+
+    def test_key_docstring_is_not_created_in_functional_syntax(self) -> None:
+        key_docstring = "This is a key doc"
+        tree = DictDataTypeTree(
+            data={"full name": "Joan", "doc": "This is a docstring", f"{self.PREFFIX}full name": key_docstring},
+            name=self.NAME,
+            strategies=ParsingStrategies(dict_strategy="TypedDict", key_used_as_doc="doc"),
+        )
+        assert key_docstring not in tree.get_str_top_node().splitlines()
+
+    @pytest.mark.parametrize(
+        "data1, data2, expected_same_hash",
+        [
+            ({"name": "Joan", f"{PREFFIX}name": "This is a doc"}, {"name": "Joan"}, True),
+            ({"age": 22, f"{PREFFIX}age": "This is a doc"}, {"age": 23}, True),
+            ({"age": 22, f"{PREFFIX}age": "This is a doc"}, {"age": "22"}, False),
+        ],
+    )
+    def test_hidden_key_docs_do_not_change_hash(
+        self, data1: Dict[Any, Any], data2: Dict[Any, Any], expected_same_hash: bool
+    ) -> None:
+        tree1 = DictDataTypeTree(data1)
+        tree2 = DictDataTypeTree(data2)
+        assert expected_same_hash == (hash(tree1) == hash(tree2))

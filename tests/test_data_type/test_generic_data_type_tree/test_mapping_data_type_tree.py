@@ -4,6 +4,7 @@ from typing import Any, Callable, Final, Iterable, Mapping
 import pytest
 
 from dynamic_pyi_generator.data_type_tree.generic_type import DictDataTypeTree, MappingDataTypeTree
+from dynamic_pyi_generator.file_modifiers.yaml_file_modifier import YamlFileModifier
 from dynamic_pyi_generator.strategies import ParsingStrategies
 
 
@@ -114,3 +115,22 @@ class TestGetAliasHeight:
             strategies=ParsingStrategies(min_height_to_define_type_alias=min_height, dict_strategy="dict"),
         )
         assert expected_output == tree.get_str_top_node()
+
+
+class TestHashWithHiddenKeyBasedDocs:
+    PREFFIX: Final = YamlFileModifier.preffix
+
+    @pytest.mark.parametrize(
+        "data1, data2, expected_same_hash",
+        [
+            ({"name": "Joan", f"{PREFFIX}name": "This is a doc"}, {"name": "Joan"}, True),
+            ({"age": 22, f"{PREFFIX}age": "This is a doc"}, {"age": 23}, True),
+            ({"age": 22, f"{PREFFIX}age": "This is a doc"}, {"age": "22"}, False),
+        ],
+    )
+    def test_hash_is_not_altered(
+        self, data1: Mapping[Any, Any], data2: Mapping[Any, Any], expected_same_hash: bool
+    ) -> None:
+        tree1 = MappingDataTypeTree(data1)
+        tree2 = MappingDataTypeTree(data2)
+        assert expected_same_hash == (hash(tree1) == hash(tree2))

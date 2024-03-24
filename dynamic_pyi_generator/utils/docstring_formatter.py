@@ -34,7 +34,7 @@ def _split_string(string: str, *, max_line_length: int) -> Tuple[str, ...]:
     return tuple(substrings)
 
 
-def format_string_as_docstring(string: str, *, max_line_length: int = 90) -> str:
+def format_string_as_docstring(string: str, *, max_line_length: int = 90, indentation: str = "") -> str:
     """
     Formats a string as a docstring.
 
@@ -50,8 +50,10 @@ def format_string_as_docstring(string: str, *, max_line_length: int = 90) -> str
         string += "."
     docstring = '"""' + string + '"""'
     if len(docstring) <= max_line_length and "\n" not in docstring:
-        return docstring
+        return indentation + docstring
     substrings = _split_string(string, max_line_length=max_line_length)
     if len(substrings) == 1 and "\n" not in docstring:
-        return docstring
-    return '"""\n' + "\n".join(substrings) + '\n"""'
+        return indentation + docstring
+
+    substrings = tuple([f"{indentation}{substring}" for substring in substrings])
+    return f'{indentation}"""\n' + "\n".join(substrings) + f'\n{indentation}"""'

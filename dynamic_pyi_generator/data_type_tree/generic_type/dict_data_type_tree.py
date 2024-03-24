@@ -1,14 +1,19 @@
 from functools import cached_property
-from typing import TYPE_CHECKING, Dict, Hashable, List, Mapping, NamedTuple, cast
+from typing import TYPE_CHECKING, Dict, Hashable, List, Mapping, NamedTuple, Sequence, cast
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeGuard, override
+    from typing_extensions import TypeGuard, override, reveal_type
 else:
     override = lambda x: x
 
+from typing import TypeVar
+
 from dynamic_pyi_generator.data_type_tree.data_type_tree import DataTypeTree
 from dynamic_pyi_generator.data_type_tree.generic_type.mapping_data_type_tree import MappingDataTypeTree
+from dynamic_pyi_generator.file_modifiers.yaml_file_modifier import YamlFileModifier
 from dynamic_pyi_generator.utils import TAB, format_string_as_docstring, is_string_python_keyword_compatible
+
+ValueT = TypeVar("ValueT")
 
 
 class DictDataTypeTree(MappingDataTypeTree):
@@ -66,7 +71,7 @@ class DictDataTypeTree(MappingDataTypeTree):
             return self._parse_dict(self.childs)
 
     @staticmethod
-    def _all_keys_are_string(data: Mapping[object, DataTypeTree]) -> "TypeGuard[Mapping[str, DataTypeTree]]":
+    def _all_keys_are_string(data: Mapping[object, ValueT]) -> "TypeGuard[Mapping[str, ValueT]]":
         return all(isinstance(key, str) for key in data)
 
     @staticmethod
@@ -133,26 +138,59 @@ class DictDataTypeTree(MappingDataTypeTree):
             idx_to_repeat = -3
         else:
             template = f"""class {name}(TypedDict):
-{TAB}{{key}}: {{value}}"""
+{TAB}{{key}}: {{value}}{{optional_key_docstring}}"""
             idx_to_repeat = -1
 
         # Build the dictionary
         lines = template.splitlines()
         modified_line = ""
+        key_docstring_start_with = YamlFileModifier.preffix
+        key_docstrings = self._get_key_docstrings(docstring_keys_start_with=key_docstring_start_with)
         for key, value in content.items():
-            modified_line += lines[idx_to_repeat].format(key=key, value=value) + "\n"
+            if not key.startswith(key_docstring_start_with):  # Do not add artificially created keys
+                if self.dict_profile.is_functional_syntax:
+                    modified_line += lines[idx_to_repeat].format(key=key, value=value) + "\n"
+                else:
+                    docstring = key_docstrings.get(key, "")
+                    modified_line += lines[idx_to_repeat].format(key=key, value=value, optional_key_docstring=docstring)
+                    if not docstring:
+                        modified_line += "\n"
         lines[idx_to_repeat] = modified_line[:-1]
 
-        # Append docstring if found
-        if key_used_as_doc in self.original_data:
-            string = self.original_data[key_used_as_doc]
-            if isinstance(string, str):
-                docstring = format_string_as_docstring(string)
-                if functional_syntax:
-                    lines.insert(len(lines), docstring)
-                else:
-                    lines.insert(1, TAB + docstring + "\n")
+        # Append class docstring if found
+        if key_used_as_doc in self.original_data and key_used_as_doc:
+            lines = self._insert_class_docstring(lines, key_used_as_doc=key_used_as_doc)
         return "\n".join(lines)
+
+    def _get_key_docstrings(self, *, docstring_keys_start_with: str) -> Mapping[str, str]:
+        if self.dict_profile.is_functional_syntax or not self._all_keys_are_string(self.original_data):
+            return {}
+        dct: Dict[str, str] = {}
+        # Insert key docstrings
+        for key in self.original_data:
+            if not key.startswith(docstring_keys_start_with):  # Check key is not docstring based
+                doc_key = f"{YamlFileModifier.preffix}{key}"
+                if doc_key in self.original_data:  # Check if there is key docstring
+                    unformatted_docstring = self.original_data[doc_key]
+                    if not isinstance(unformatted_docstring, str):
+                        continue
+                    formated_docstring = (
+                        "\n" + format_string_as_docstring(unformatted_docstring, indentation=TAB) + "\n"
+                    )
+                    dct[key] = formated_docstring
+        return dct
+
+    def _insert_class_docstring(self, lines: Sequence[str], *, key_used_as_doc: str) -> List[str]:
+        string = self.original_data[key_used_as_doc]
+        lines = list(lines)
+        if isinstance(string, str):
+            indentation = "" if self.dict_profile.is_functional_syntax else TAB
+            docstring = format_string_as_docstring(string, indentation=indentation)
+            if self.dict_profile.is_functional_syntax:
+                lines.insert(len(lines), docstring)
+            else:
+                lines.insert(1, docstring + "\n")
+        return lines
 
     @override
     def _get_hash(self) -> Hashable:

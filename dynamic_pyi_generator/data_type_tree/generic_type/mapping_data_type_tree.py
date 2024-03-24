@@ -2,6 +2,8 @@ import re
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Dict, Hashable, Iterator, List, Literal, Mapping, Set
 
+from dynamic_pyi_generator.file_modifiers.yaml_file_modifier import YamlFileModifier
+
 if TYPE_CHECKING:
     from typing_extensions import override
 else:

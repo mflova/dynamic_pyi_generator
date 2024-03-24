@@ -42,7 +42,7 @@ class YamlFileModifier:
     path: Path
     lines: Tuple[str, ...]
     comments_are: Tuple[YAML_COMMENTS_POSITION, ...]
-    preffix: Final = "___"
+    preffix: Final = f"___docstring_key_"
 
     def __init__(
         self, path: Union[str, Path], *, comments_are: Union[YAML_COMMENTS_POSITION, Sequence[YAML_COMMENTS_POSITION]]
