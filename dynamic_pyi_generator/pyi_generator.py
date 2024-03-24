@@ -22,6 +22,7 @@ from typing import (
 import dynamic_pyi_generator
 from dynamic_pyi_generator.data_type_tree import data_type_tree_factory
 from dynamic_pyi_generator.file_modifiers.py_file_modifier import PyFileModifier
+from dynamic_pyi_generator.file_modifiers.yaml_file_modifier import YAML_COMMENTS_POSITION, YamlFileModifier
 from dynamic_pyi_generator.strategies import ParsingStrategies
 from dynamic_pyi_generator.utils import (
     TAB,
@@ -64,7 +65,7 @@ class PyiGenerator:
     """Header that will be prepended to all new classes created."""
     classes_created: "TypeAlias" = Any
     """Classes created by the class. Do not modify."""
-    methods_to_be_overloaded: Final = ("from_data", "from_file")
+    methods_to_be_overloaded: Final = ("from_data", "from_yaml_file")
     """Methods that will be modified in the PYI interface when new classes are added."""
 
     @final
@@ -150,15 +151,22 @@ class PyiGenerator:
             dct[match] = path
         return dct
 
-    def from_file(
+    def from_yaml_file(
         self,
         loader: Callable[[PathT], ObjectT],
         path: PathT,
         *,
         class_name: str,
+        comments_are: Union[YAML_COMMENTS_POSITION, Sequence[YAML_COMMENTS_POSITION]],
     ) -> ObjectT:
+        yaml_file_modifier = YamlFileModifier(path, comments_are=comments_are)
+        new_path = yaml_file_modifier.create_temporary_file_with_comments_as_keys()
+        try:
+            data = loader(new_path)
+        except Exception:
+            data = loader(path)
         return self.from_data(
-            loader(path),
+            data,
             class_name=class_name,
         )
 
