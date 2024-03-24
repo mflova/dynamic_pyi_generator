@@ -163,7 +163,7 @@ class PyiGenerator:
         new_path = yaml_file_modifier.create_temporary_file_with_comments_as_keys()
         try:
             data = loader(new_path)
-        except Exception:
+        except Exception:  # noqa: BLE001
             data = loader(path)
         return self.from_data(
             data,
