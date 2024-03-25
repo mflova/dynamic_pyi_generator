@@ -79,11 +79,11 @@ class SetAndSequenceOperations:
                 childs.append(child)  # type: ignore
                 names_added.add(name)
             else:
-                # Transfer hidden keys of the TypedDict before discarding the node
-                if child in childs and isinstance(child, DictDataTypeTree) and child.dict_profile.is_typed_dict:
+                # Transfer all the information to the already added DictDataTypeTree child
+                if child in childs and isinstance(child, DictDataTypeTree) and child.dict_metadata.is_typed_dict:
                     for child_added in childs:
-                        if child == child_added:
-                            self._transfer_hidden_keys(child, child_added)
+                        if child == child_added and isinstance(child_added, DictDataTypeTree):
+                            child_added.update(child)
                 if child not in childs:
                     childs.add(child)  # type: ignore
                     names_added.add(name)
@@ -98,7 +98,9 @@ class SetAndSequenceOperations:
 
     @staticmethod
     def _transfer_hidden_keys(from_child: DictDataTypeTree, to_child: DictDataTypeTree) -> None:
-        for hidden_key, docstring in from_child._get_key_docstrings(return_formatted_as_docstring=False).items():
+        for hidden_key, docstring in from_child.dict_metadata.get_key_docstrings(
+            return_formatted_as_docstring=False
+        ).items():
             hidden_key = f"{DictDataTypeTree.hidden_keys_preffix}{hidden_key}"
             if hidden_key not in to_child.data:
                 to_child.data[hidden_key] = docstring
@@ -108,7 +110,7 @@ class SetAndSequenceOperations:
         typed_dict_based_childs: Set[DictDataTypeTree] = set()
         for child in childs:
             if isinstance(child, DictDataTypeTree):
-                if child.dict_profile.is_typed_dict:
+                if child.dict_metadata.is_typed_dict:
                     typed_dict_based_childs.add(child)
 
         if len(typed_dict_based_childs) < 2:

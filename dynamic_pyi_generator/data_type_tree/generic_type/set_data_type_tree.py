@@ -19,7 +19,7 @@ class SetDataTypeTree(GenericDataTypeTree):
     operations: SetAndSequenceOperations
 
     @override
-    def __pre_init__(self) -> None:
+    def __pre_child_instantiation__(self) -> None:
         self.operations = SetAndSequenceOperations(self)
 
     @override

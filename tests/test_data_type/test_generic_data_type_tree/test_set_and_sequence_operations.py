@@ -133,5 +133,5 @@ class TestTransferHiddenKeys:
         ],
     )
     def test_integration(self, tree: DataTypeTree, expected_dict: object) -> None:
+        assert len(tree) == 1
         assert expected_dict == next(iter(tree.childs)).data
-        pass

@@ -89,22 +89,22 @@ class DataTypeTree(ABC):
                 f"The given parser is meant to parse `{', '.join(wraps_str)}` data type but "
                 f"{type(data).__name__} was given"
             )
-        self.__pre_init__()
+        self.data = data
         self.name = name
         self.holding_type = type(data)
         self.strategies = strategies
         self.depth = depth
         self.imports = ImportManager() if imports is None else imports
-        self.childs = self._instantiate_childs(data)
         self.parent = parent
+        self.__pre_child_instantiation__()
+        self.childs = self._instantiate_childs(data)
         self.height = self._get_height()
         self._needs_type_alias = False
-        self.data = data
-        self.__post_init__()
+        self.__post_child_instantiation__()
 
-    def __pre_init__(self) -> None: ...
+    def __pre_child_instantiation__(self) -> None: ...
 
-    def __post_init__(self) -> None: ...
+    def __post_child_instantiation__(self) -> None: ...
 
     def _get_height(self) -> int:
         """Get maximum height of the current node in the tree."""
