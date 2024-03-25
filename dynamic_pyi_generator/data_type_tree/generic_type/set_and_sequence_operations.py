@@ -5,7 +5,21 @@ hinting they are quite similar.
 """
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, FrozenSet, List, Literal, Mapping, Optional, Sequence, Set, Tuple, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    FrozenSet,
+    Iterable,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+    cast,
+)
 
 from dynamic_pyi_generator.data_type_tree.factory import data_type_tree_factory
 from dynamic_pyi_generator.data_type_tree.generic_type.dict_data_type_tree import DictDataTypeTree
@@ -65,14 +79,34 @@ class SetAndSequenceOperations:
                 childs.append(child)  # type: ignore
                 names_added.add(name)
             else:
+                # Transfer hidden keys of the TypedDict before discarding the node
+                if child in childs and isinstance(child, DictDataTypeTree) and child.dict_profile.is_typed_dict:
+                    for child_added in childs:
+                        if child == child_added:
+                            self._transfer_hidden_keys(child, child_added)
                 if child not in childs:
                     childs.add(child)  # type: ignore
                     names_added.add(name)
-        return tuple(childs)
 
-    def _get_key_info_from_its_typed_dict_childs(self) -> Optional[MultipleTypedDictsInfo]:
+        return self._merge_typed_dicts(childs)
+
+    @staticmethod
+    def _merge_typed_dicts(childs: "Union[Set[DataTypeTree], Sequence[DataTypeTree]]") -> "Tuple[DataTypeTree, ...]":
+        info = SetAndSequenceOperations._get_key_info_from_its_typed_dict_childs(childs)
+        # TODO: IDK
+        return childs
+
+    @staticmethod
+    def _transfer_hidden_keys(from_child: DictDataTypeTree, to_child: DictDataTypeTree) -> None:
+        for hidden_key, docstring in from_child._get_key_docstrings(return_formatted_as_docstring=False).items():
+            hidden_key = f"{DictDataTypeTree.hidden_keys_preffix}{hidden_key}"
+            if hidden_key not in to_child.data:
+                to_child.data[hidden_key] = docstring
+
+    @staticmethod
+    def _get_key_info_from_its_typed_dict_childs(childs: Iterable["DataTypeTree"]) -> Optional[MultipleTypedDictsInfo]:
         typed_dict_based_childs: Set[DictDataTypeTree] = set()
-        for child in self.data_type_tree:
+        for child in childs:
             if isinstance(child, DictDataTypeTree):
                 if child.dict_profile.is_typed_dict:
                     typed_dict_based_childs.add(child)

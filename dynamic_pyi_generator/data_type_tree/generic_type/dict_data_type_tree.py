@@ -151,7 +151,9 @@ class DictDataTypeTree(MappingDataTypeTree):
         # Build the dictionary
         lines = template.splitlines()
         modified_line = ""
-        key_docstrings = self._get_key_docstrings(docstring_keys_start_with=self.hidden_keys_preffix)
+        key_docstrings = self._get_key_docstrings(
+            docstring_keys_start_with=self.hidden_keys_preffix, return_formatted_as_docstring=True
+        )
         for key, value in content.items():
             if key.startswith(self.hidden_keys_preffix):  # Do not add artificially created keys
                 continue
@@ -169,7 +171,11 @@ class DictDataTypeTree(MappingDataTypeTree):
             lines = self._insert_class_docstring(lines, key_used_as_doc=key_used_as_class_docstring)
         return "\n".join(lines)
 
-    def _get_key_docstrings(self, *, docstring_keys_start_with: str) -> Mapping[str, str]:
+    def _get_key_docstrings(
+        self, *, docstring_keys_start_with: str = "", return_formatted_as_docstring: bool = False
+    ) -> Mapping[str, str]:
+        if not docstring_keys_start_with:
+            docstring_keys_start_with = self.hidden_keys_preffix
         if self.dict_profile.is_functional_syntax or not self._all_keys_are_string(self.data):
             return {}
         dct: Dict[str, str] = {}
@@ -181,10 +187,13 @@ class DictDataTypeTree(MappingDataTypeTree):
                     unformatted_docstring = self.data[doc_key]  # type: ignore
                     if not isinstance(unformatted_docstring, str):
                         continue
-                    formated_docstring = (
-                        "\n" + format_string_as_docstring(unformatted_docstring, indentation=TAB) + "\n"
-                    )
-                    dct[key] = formated_docstring
+                    if return_formatted_as_docstring:
+                        formated_docstring = (
+                            "\n" + format_string_as_docstring(unformatted_docstring, indentation=TAB) + "\n"
+                        )
+                        dct[key] = formated_docstring
+                    else:
+                        dct[key] = unformatted_docstring
         return dct
 
     def _insert_class_docstring(self, lines: Sequence[str], *, key_used_as_doc: str) -> List[str]:
