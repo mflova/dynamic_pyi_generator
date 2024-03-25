@@ -1,4 +1,4 @@
-from typing import Any, Callable, Dict, Final, Hashable, Iterable, Mapping, MappingView
+from typing import Any, Callable, Dict, Final, Hashable, Iterable, Mapping, MappingView, Sequence, Set
 
 import pytest
 
@@ -6,6 +6,7 @@ from dynamic_pyi_generator.data_type_tree import data_type_tree_factory
 from dynamic_pyi_generator.data_type_tree.generic_type.dict_data_type_tree import (
     DictDataTypeTree,
     DictMetadata,
+    DictMetadataComparison,
     KeyInfo,
     MappingDataTypeTree,
 )
@@ -513,3 +514,65 @@ class TestDictMetadata:
         metadata.update(DictMetadata(other_dict, hidden_key_preffix=self.PREFFIX, strategies=strategies))
         assert expected_dict == metadata._data
         assert expected_key_info == metadata.key_info
+
+    @pytest.mark.parametrize(
+        "data, include_hidden_keys, expected_output",
+        [
+            ({"b": 2, f"{PREFFIX}b": "doc"}, False, {"b"}),
+            ({"b": 2, "a": "doc"}, False, {"b", "a"}),
+            ({"b": 2, f"{PREFFIX}b": "doc"}, True, {f"{PREFFIX}b", "b"}),
+            ({"b": 2, "a": "doc"}, True, {"b", "a"}),
+            ({1: 2, "a": "doc"}, True, {1, "a"}),
+            ({1: 2, f"{PREFFIX}a": "doc", "a": 2}, True, {1, "a", f"{PREFFIX}a"}),
+        ],
+    )
+    def test_get_keys(
+        self, data: Mapping[Hashable, object], expected_output: Set[str], include_hidden_keys: bool
+    ) -> None:
+        assert expected_output == DictMetadata(
+            data, hidden_key_preffix=self.PREFFIX, strategies=ParsingStrategies(dict_strategy="TypedDict")
+        ).get_keys(include_hidden_prefix_keys=include_hidden_keys)
+
+    @pytest.mark.parametrize(
+        "dicts, expected_output, expected_similarity",
+        [
+            (
+                [{"a": 2}, {"a": 3}, {"a": 2}],
+                DictMetadataComparison(common_keys={"a"}),
+                100,
+            ),
+            (
+                [{"a": 2}, {"b": 3}, {"c": 2}],
+                DictMetadataComparison(non_common_keys={"a", "b", "c"}),
+                0,
+            ),
+            (
+                [{"a": 2}, {"a": 3}, {"b": 2}],
+                DictMetadataComparison(non_common_keys={"a", "b"}),
+                0,
+            ),
+            (
+                [{"a": 2, "b": 3}, {"a": 3}, {"a": 2, "j": 4}],
+                DictMetadataComparison(common_keys={"a"}, non_common_keys={"b", "j"}),
+                33,
+            ),
+            (
+                [{}, {"a": 3}, {}],
+                DictMetadataComparison(non_common_keys={"a"}),
+                0,
+            ),
+        ],
+    )
+    def test_get_info_from_multiple_dicts(
+        self,
+        dicts: Sequence[Mapping[Hashable, object]],
+        expected_output: DictMetadataComparison,
+        expected_similarity: int,
+    ) -> None:
+        dicts_ = [
+            DictMetadata(dct, hidden_key_preffix=self.PREFFIX, strategies=ParsingStrategies(dict_strategy="TypedDict"))
+            for dct in dicts
+        ]
+        comparison = DictMetadata.compare_multiple_dicts(*dicts_)
+        assert expected_output == comparison
+        assert expected_similarity == comparison.percentage_similarity

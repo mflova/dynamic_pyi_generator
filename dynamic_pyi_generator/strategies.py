@@ -13,6 +13,7 @@ class ParsingStrategies:
     dict_strategy: MAPPING_STRATEGIES = "TypedDict"
     min_height_to_define_type_alias: int = 1
     key_used_as_doc: str = ""
+    merge_typed_dicts_if_similarity_above: int = 50
 
     def __post_init__(self) -> None:
         type_hints = get_type_hints(self)
@@ -25,3 +26,6 @@ class ParsingStrategies:
                 )
         if self.min_height_to_define_type_alias < 0:
             raise ValueError("`min_height_to_define_type_alias` must be greater or equal than 0")
+
+        if self.merge_typed_dicts_if_similarity_above <= 0:
+            raise ValueError("`merge_typed_dicts_if_similarity_above` must be greater than 0")

@@ -22,24 +22,12 @@ from typing import (
 )
 
 from dynamic_pyi_generator.data_type_tree.factory import data_type_tree_factory
-from dynamic_pyi_generator.data_type_tree.generic_type.dict_data_type_tree import DictDataTypeTree
+from dynamic_pyi_generator.data_type_tree.generic_type.dict_data_type_tree import DictDataTypeTree, DictMetadata
 
 if TYPE_CHECKING:
     from dynamic_pyi_generator.data_type_tree.data_type_tree import DataTypeTree
     from dynamic_pyi_generator.data_type_tree.generic_type.sequence_data_type_tree import SequenceDataTypeTree
     from dynamic_pyi_generator.data_type_tree.generic_type.set_data_type_tree import SetDataTypeTree
-
-
-@dataclass(frozen=True)
-class MultipleTypedDictsInfo:
-    common_keys: Set[str] = field(default_factory=set)
-    non_common_keys: Set[str] = field(default_factory=set)
-    types_info: Mapping[str, Sequence[str]] = field(default_factory=dict)
-
-    @property
-    def percentage_similarity(self) -> int:
-        total_keys = len(self.common_keys) + len(self.non_common_keys)
-        return int(100 * (len(self.common_keys) / total_keys))
 
 
 @dataclass(frozen=True)
@@ -90,34 +78,16 @@ class SetAndSequenceOperations:
 
         return self._merge_typed_dicts(childs)
 
-    @staticmethod
-    def _merge_typed_dicts(childs: "Union[Set[DataTypeTree], Sequence[DataTypeTree]]") -> "Tuple[DataTypeTree, ...]":
-        info = SetAndSequenceOperations._get_key_info_from_its_typed_dict_childs(childs)
-        # TODO: IDK
-        return childs
+    def _merge_typed_dicts(
+        self, childs: "Union[Set[DataTypeTree], Sequence[DataTypeTree]]"
+    ) -> "Tuple[DataTypeTree, ...]":
+        comparison = DictDataTypeTree.compare_multiple_typed_dicts_based_trees(
+            *childs, ignore_functional_syntax_ones=True
+        )
+        if comparison.percentage_similarity < self.data_type_tree.strategies.merge_typed_dicts_if_similarity_above:
+            return tuple(childs)
 
-    @staticmethod
-    def _transfer_hidden_keys(from_child: DictDataTypeTree, to_child: DictDataTypeTree) -> None:
-        for hidden_key, docstring in from_child.dict_metadata.get_key_docstrings(
-            return_formatted_as_docstring=False
-        ).items():
-            hidden_key = f"{DictDataTypeTree.hidden_keys_preffix}{hidden_key}"
-            if hidden_key not in to_child.data:
-                to_child.data[hidden_key] = docstring
-
-    @staticmethod
-    def _get_key_info_from_its_typed_dict_childs(childs: Iterable["DataTypeTree"]) -> Optional[MultipleTypedDictsInfo]:
-        typed_dict_based_childs: Set[DictDataTypeTree] = set()
-        for child in childs:
-            if isinstance(child, DictDataTypeTree):
-                if child.dict_metadata.is_typed_dict:
-                    typed_dict_based_childs.add(child)
-
-        if len(typed_dict_based_childs) < 2:
-            return None
-
-        keys_per_dictionary = [set(child.childs.keys()) for child in typed_dict_based_childs]
-        common_keys = cast(Set[str], set.intersection(*keys_per_dictionary))
-        total_keys = cast(Set[str], set.union(*keys_per_dictionary))
-        non_common_keys = total_keys - common_keys
-        return MultipleTypedDictsInfo(common_keys=common_keys, non_common_keys=non_common_keys)
+        # TODO: Merge all TypedDicts here. ONLY THE ONES WITH FUNCTIONAL SYNTAX
+        # First TypedDict in the sequence will alreayd have all dictionary updated with all the data
+        # Remember to leave only one of type `DictTypeDataTree`
+        return tuple(childs)

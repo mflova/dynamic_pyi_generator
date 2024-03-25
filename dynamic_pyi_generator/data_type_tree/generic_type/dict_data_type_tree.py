@@ -2,12 +2,12 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Dict, Hashable, KeysView, List, Mapping, NamedTuple, Optional, Sequence, cast
 
 if TYPE_CHECKING:
-    from typing_extensions import TypeGuard, override
+    from typing_extensions import Self, TypeGuard, override
 else:
     override = lambda x: x
 
-from dataclasses import dataclass
-from typing import TypeVar
+from dataclasses import dataclass, field
+from typing import Set, TypeVar
 
 from dynamic_pyi_generator.data_type_tree.data_type_tree import DataTypeTree
 from dynamic_pyi_generator.data_type_tree.generic_type.mapping_data_type_tree import MappingDataTypeTree
@@ -15,6 +15,19 @@ from dynamic_pyi_generator.strategies import ParsingStrategies
 from dynamic_pyi_generator.utils import TAB, format_string_as_docstring, is_string_python_keyword_compatible
 
 ValueT = TypeVar("ValueT")
+
+
+@dataclass(frozen=True)
+class DictMetadataComparison:
+    common_keys: Set[str] = field(default_factory=set)
+    non_common_keys: Set[str] = field(default_factory=set)
+
+    @property
+    def percentage_similarity(self) -> int:
+        total_keys = len(self.common_keys) + len(self.non_common_keys)
+        if total_keys == 0:
+            return 0
+        return int(100 * (len(self.common_keys) / total_keys))
 
 
 @dataclass
@@ -48,6 +61,24 @@ class DictMetadata:
         self.hidden_key_preffix = hidden_key_preffix
         self.key_info = {}
         self._update_key_info(force_all_required_to_true=True)
+
+    def get_keys(self, *, include_hidden_prefix_keys: bool = False) -> Set[Hashable]:
+        if include_hidden_prefix_keys:
+            return set(self._data.keys())
+        if self._all_keys_are_string(self._data):
+            return set(key for key in self._data if not key.startswith(self.hidden_key_preffix))
+        return set(self._data.keys())
+
+    @staticmethod
+    def compare_multiple_dicts(*dicts_metadata: "DictMetadata") -> DictMetadataComparison:
+        keys_per_dictionary = [set(object_.get_keys()) for object_ in dicts_metadata]
+        if not keys_per_dictionary:
+            return DictMetadataComparison()
+
+        common_keys = set.intersection(*keys_per_dictionary)
+        total_keys = set.union(*keys_per_dictionary)
+        non_common_keys = total_keys - common_keys
+        return DictMetadataComparison(common_keys=common_keys, non_common_keys=non_common_keys)
 
     @property
     def is_typed_dict(self) -> bool:
@@ -284,3 +315,8 @@ class DictDataTypeTree(MappingDataTypeTree):
         for name, child in self.childs.items():
             hashes.append(("typed_dict", name, child._get_hash()))
         return frozenset(hashes)
+
+    @staticmethod
+    def compare_multiple_typed_dicts_based_trees(*trees: "DictDataTypeTree", *, ignore_functional_syntax_ones: bool = True) -> DictMetadataComparison:
+        dicts_metadata = [tree.dict_metadata for tree in trees if isinstance(tree, DictDataTypeTree) and tree.dict_metadata.is_typed_dict and tree.dict_metadata.is_functional_syntax]
+        return DictMetadata.compare_multiple_dicts(*dicts_metadata)
