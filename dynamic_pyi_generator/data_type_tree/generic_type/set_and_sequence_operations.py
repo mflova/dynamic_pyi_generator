@@ -4,18 +4,33 @@ Although they present a total different behaviour at runtime, from the point of 
 hinting they are quite similar.
 """
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, List, Sequence, Set, Tuple, Union
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, FrozenSet, List, Literal, Mapping, Optional, Sequence, Set, Tuple, Union, cast
 
 from dynamic_pyi_generator.data_type_tree.factory import data_type_tree_factory
+from dynamic_pyi_generator.data_type_tree.generic_type.dict_data_type_tree import DictDataTypeTree
 
 if TYPE_CHECKING:
     from dynamic_pyi_generator.data_type_tree.data_type_tree import DataTypeTree
+    from dynamic_pyi_generator.data_type_tree.generic_type.sequence_data_type_tree import SequenceDataTypeTree
+    from dynamic_pyi_generator.data_type_tree.generic_type.set_data_type_tree import SetDataTypeTree
+
+
+@dataclass(frozen=True)
+class MultipleTypedDictsInfo:
+    common_keys: Set[str] = field(default_factory=set)
+    non_common_keys: Set[str] = field(default_factory=set)
+    types_info: Mapping[str, Sequence[str]] = field(default_factory=dict)
+
+    @property
+    def percentage_similarity(self) -> int:
+        total_keys = len(self.common_keys) + len(self.non_common_keys)
+        return int(100 * (len(self.common_keys) / total_keys))
 
 
 @dataclass(frozen=True)
 class SetAndSequenceOperations:
-    data_type_tree: "DataTypeTree"
+    data_type_tree: "Union[SetDataTypeTree, SequenceDataTypeTree]"
 
     def instantiate_childs(self, data: Sequence[Any], *, allow_repeated_childs: bool) -> Tuple["DataTypeTree", ...]:
         """Instantiate the childs for sets and sequences.
@@ -54,3 +69,19 @@ class SetAndSequenceOperations:
                     childs.add(child)  # type: ignore
                     names_added.add(name)
         return tuple(childs)
+
+    def _get_key_info_from_its_typed_dict_childs(self) -> Optional[MultipleTypedDictsInfo]:
+        typed_dict_based_childs: Set[DictDataTypeTree] = set()
+        for child in self.data_type_tree:
+            if isinstance(child, DictDataTypeTree):
+                if child.dict_profile.is_typed_dict:
+                    typed_dict_based_childs.add(child)
+
+        if len(typed_dict_based_childs) < 2:
+            return None
+
+        keys_per_dictionary = [set(child.childs.keys()) for child in typed_dict_based_childs]
+        common_keys = cast(Set[str], set.intersection(*keys_per_dictionary))
+        total_keys = cast(Set[str], set.union(*keys_per_dictionary))
+        non_common_keys = total_keys - common_keys
+        return MultipleTypedDictsInfo(common_keys=common_keys, non_common_keys=non_common_keys)

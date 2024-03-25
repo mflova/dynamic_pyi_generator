@@ -13,11 +13,11 @@ from dynamic_pyi_generator.data_type_tree.generic_type.set_and_sequence_operatio
 
 class SequenceDataTypeTree(GenericDataTypeTree):
     original_data = Sequence[object]
-    sequence_operations: SetAndSequenceOperations
+    operations: SetAndSequenceOperations
 
     @override
     def __pre_init__(self) -> None:
-        self.sequence_operations = SetAndSequenceOperations(self)
+        self.operations = SetAndSequenceOperations(self)
 
     @override
     def _get_hash(self) -> Hashable:

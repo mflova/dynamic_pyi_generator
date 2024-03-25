@@ -16,9 +16,9 @@ class TupleDataTypeTree(SequenceDataTypeTree):
     @override
     def _instantiate_childs(self, data: Sequence[Any]) -> Tuple[DataTypeTree, ...]:  # type: ignore
         if self.strategies.tuple_size_strategy == "fixed":
-            return self.sequence_operations.instantiate_childs(data, allow_repeated_childs=True)
+            return self.operations.instantiate_childs(data, allow_repeated_childs=True)
         else:
-            return self.sequence_operations.instantiate_childs(data, allow_repeated_childs=False)
+            return self.operations.instantiate_childs(data, allow_repeated_childs=False)
 
     @override
     def _get_str_top_node(self) -> str:

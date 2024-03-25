@@ -1,6 +1,8 @@
 # TODO
 
 TODO:
+- When discarding TypedDicts due to its similarity, make sure that no hidden key based
+  docs are discarded
 - Test: Check that the `input_data` is not modified by any mean
 - Include some kind of pytest coverage.
 - New feature: Possibility to merge ALL dictionaries
