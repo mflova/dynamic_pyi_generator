@@ -28,8 +28,10 @@ type hints for:
 
 - `from_data`: Any Python built-in data structure and more. This encompasses large or
   deeply nested structures, regular or multi-index `Pandas` `DataFrames`, `numpy` arrays, etc.
-- `from_yaml_file`: The same functionality as from_data. If the YAML file contains
-  comments, they're parsed as docstrings.
+- `from_pickle`: Same as `from_data` but loading the data structure from a `pickle` file
+  first.
+- `from_yaml_file`: The same functionality as `from_data`. Additionally, if the YAML file
+  contains comments, they're parsed as docstrings.
   
 Each tool provides a variety of parameters that allow you to refine the type hint
 generation process or validate your data structures.

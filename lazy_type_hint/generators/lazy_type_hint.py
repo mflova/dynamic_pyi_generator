@@ -53,6 +53,14 @@ class LazyTypeHint(LazyTypeHintABC):
     ) -> None:
         self.strategies = strategies
 
+    def from_pickle_file(
+        self,
+        path: PathT,
+        *,
+        class_name: str,
+    ) -> Tree:
+        return super().from_pickle_file(path=path, class_name=class_name)
+
     def from_yaml_file(
         self,
         loader: Callable[[PathT], object],

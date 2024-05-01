@@ -1,4 +1,5 @@
 import os
+import pickle
 import re
 import shutil
 from pathlib import Path
@@ -96,6 +97,17 @@ class LazyTypeHintLive(LazyTypeHintABC):
                 )
             dct[match] = path
         return dct
+
+    @override
+    def from_pickle_file(
+        self,
+        path: PathT,
+        *,
+        class_name: str,
+    ) -> Any:
+        # TODO: Make LiveABC covariant with the returned type
+        return super().from_pickle_file(path=path, class_name=class_name)
+
 
     @override
     def from_yaml_file(
